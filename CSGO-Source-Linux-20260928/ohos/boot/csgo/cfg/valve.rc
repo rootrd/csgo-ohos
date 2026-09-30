@@ -1,0 +1,7 @@
+// CS:NO boot package: what the engine runs at start -- command line +commands, then the (Panorama) main menu
+stuffcmds
+startupmenu
+gameui_activate
+csno_boot_menu
+// a static page: keep the CPU for the download (LZMA) and the phone cool
+fps_max 30

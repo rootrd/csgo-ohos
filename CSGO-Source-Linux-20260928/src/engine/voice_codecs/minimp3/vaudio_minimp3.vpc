@@ -1,0 +1,34 @@
+//-----------------------------------------------------------------------------
+//	VAUDIO_MINIMP3.VPC
+//
+//	Project Script
+//-----------------------------------------------------------------------------
+
+$Macro SRCDIR		"..\..\.."
+$Macro OUTBINDIR	"$SRCDIR\..\game\bin"
+
+$Include "$SRCDIR\vpc_scripts\source_dll_base.vpc"
+
+$Configuration
+{
+	$Compiler
+	{
+		$AdditionalIncludeDirectories		"$BASE,$SRCDIR\thirdparty"
+	}
+}
+
+$Project "vaudio_minimp3"
+{
+	$Folder	"Source Files"
+	{
+		$File "$SRCDIR/tier1/interface.cpp"
+		$File "mp3_minimp3.cpp"
+	}
+
+	$Folder	"Header Files"
+	{
+		$File	"$SRCDIR/public/tier1/interface.h"
+		$File	"$SRCDIR/public/vaudio/ivaudio.h"
+		$File	"$SRCDIR/thirdparty/minimp3/minimp3.h"
+	}
+}

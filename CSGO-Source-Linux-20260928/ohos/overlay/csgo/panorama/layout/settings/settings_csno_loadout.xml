@@ -1,0 +1,42 @@
+<root>
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+		<include src="file://{resources}/styles/settings/settings.css" />
+		<include src="file://{resources}/styles/mainmenu.css"/>
+		<include src="file://{resources}/styles/csno_touch.css"/>
+	</styles>
+
+	<scripts>
+		<include src="file://{resources}/scripts/settingsmenu_shared.js" />
+	</scripts>
+
+	<!-- CS:NO (09-29, 接龙: 买不了 M4A1-S / USP-S): offline there is no inventory to equip them in; these convars pick the
+	     alternative for the slot (game/shared/cstrike15/cstrike15_item_inventory.cpp csno_loadout_*). -->
+	<Panel useglobalcontext="true" class="SettingsMenuTab">
+		<Panel class="SettingsMenuTabContent vscroll">
+			<Panel class="SettingsBackground">
+				<Panel class="SettingsSectionTitleContianer">
+					<Label class="SettingsSectionTitleLabel" text="装备（反恐精英）" />
+				</Panel>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="步枪" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="csno_loadout_m4a1s">
+						<Label text="M4A4" id="csnolo_m4_0" value="0"/>
+						<Label text="M4A1 消音型（M4A1-S）" id="csnolo_m4_1" value="1"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="手枪（出生自带）" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="csno_loadout_usps">
+						<Label text="P2000" id="csnolo_usp_0" value="0"/>
+						<Label text="USP 消音版（USP-S）" id="csnolo_usp_1" value="1"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+				<Label class="csno-row-hint" text="改了之后，下次购买或下次出生生效；购买菜单里对应的格子会换成选的枪。" />
+			</Panel>
+		</Panel>
+	</Panel>
+</root>

@@ -1,0 +1,16 @@
+// CS:NO boot package (written for CS:NO, 2026-09-28): the minimal game directory the engine starts from while the
+// game assets are still being downloaded.  Only our own files live here.
+"GameInfo"
+{
+	game	"CS:NO"
+	title	"CS:NO"
+	type	multiplayer_only
+	FileSystem
+	{
+		SteamAppId	730
+		SearchPaths
+		{
+			Game	|gameinfo_path|.
+		}
+	}
+}

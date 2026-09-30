@@ -1,0 +1,22 @@
+[binaries]
+c = 'C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/llvm/bin/clang.exe'
+cpp = 'C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/llvm/bin/clang++.exe'
+ar = 'C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/llvm/bin/llvm-ar.exe'
+strip = 'C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/llvm/bin/llvm-strip.exe'
+pkg-config = 'pkg-config'
+glslangValidator = 'E:/csgo/deps/glslang/bin/glslangValidator.exe'
+
+[built-in options]
+c_args = ['--target=aarch64-linux-ohos', '--sysroot=C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/sysroot', '-D__OHOS__=1', '-fPIC']
+cpp_args = ['--target=aarch64-linux-ohos', '--sysroot=C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/sysroot', '-D__OHOS__=1', '-fPIC']
+c_link_args = ['--target=aarch64-linux-ohos', '--sysroot=C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/sysroot', '-fuse-ld=lld', '-Wl,-z,max-page-size=16384', '-Wl,-z,common-page-size=16384']
+cpp_link_args = ['--target=aarch64-linux-ohos', '--sysroot=C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/native/sysroot', '-fuse-ld=lld', '-Wl,-z,max-page-size=16384', '-Wl,-z,common-page-size=16384']
+
+[properties]
+needs_exe_wrapper = true
+
+[host_machine]
+system = 'linux'
+cpu_family = 'aarch64'
+cpu = 'aarch64'
+endian = 'little'

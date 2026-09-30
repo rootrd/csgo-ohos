@@ -1,0 +1,5 @@
+// CS:NO boot package: the engine needs a surface property table before any game files are downloaded.
+surfaceproperties_manifest
+{
+	"file"	"scripts/surfaceproperties.txt"
+}

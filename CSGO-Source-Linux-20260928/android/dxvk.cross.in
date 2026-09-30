@@ -1,0 +1,20 @@
+[binaries]
+c = '@NDK_BIN@/aarch64-linux-android@API@-clang'
+cpp = '@NDK_BIN@/aarch64-linux-android@API@-clang++'
+ar = '@NDK_BIN@/llvm-ar'
+strip = '@NDK_BIN@/llvm-strip'
+pkg-config = 'pkg-config'
+
+[host_machine]
+system = 'android'
+cpu_family = 'aarch64'
+cpu = 'armv8-a'
+endian = 'little'
+
+[properties]
+needs_exe_wrapper = true
+pkg_config_libdir = ['@PREFIX@/lib/pkgconfig']
+
+[built-in options]
+c_link_args = ['-Wl,-z,max-page-size=16384', '-Wl,-z,common-page-size=16384']
+cpp_link_args = ['-Wl,-z,max-page-size=16384', '-Wl,-z,common-page-size=16384']

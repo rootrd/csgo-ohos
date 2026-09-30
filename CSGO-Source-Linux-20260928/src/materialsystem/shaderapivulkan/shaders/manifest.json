@@ -1,0 +1,297 @@
+{
+  "schema": 1,
+  "shaders": [
+    {
+      "name": "native_decal_ps",
+      "source": "material.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {"NATIVE_DECAL": 1},
+      "alpha_test": true
+    },
+    {
+      "name": "native_rope_vs",
+      "source": "rope.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {}
+    },
+    {
+      "name": "native_rope_ps",
+      "source": "rope.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {"NATIVE_ROPE_DEPTH": 0},
+      "alpha_test": true
+    },
+    {
+      "name": "native_rope_depth_ps",
+      "source_name": "native_rope_ps",
+      "source": "rope.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {"NATIVE_ROPE_DEPTH": 1},
+      "static_index": 1
+    },
+    {
+      "name": "native_present_vs",
+      "source": "presentation.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {}
+    },
+    {
+      "name": "native_present_ps",
+      "source": "presentation.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "PRESENT_SRGB": 0
+      }
+    },
+    {
+      "name": "native_present_ps_srgb",
+      "source_name": "native_present_ps",
+      "source": "presentation.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "PRESENT_SRGB": 1
+      },
+      "dynamic_index": 1
+    },
+    {
+      "name": "framework_vs",
+      "source": "framework.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {},
+      "static_index": 7,
+      "dynamic_index": 2
+    },
+    {
+      "name": "framework_ps",
+      "source": "framework.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "FRAMEWORK_ALPHA_TEST": 1
+      },
+      "static_index": 3,
+      "dynamic_index": 5,
+      "alpha_test": true
+    },
+    {
+      "name": "framework_ps_noalpha",
+      "source_name": "framework_ps",
+      "source": "framework.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "FRAMEWORK_ALPHA_TEST": 0
+      },
+      "static_index": 3,
+      "dynamic_index": 6
+    },
+    {
+      "name": "api_fixture_vs",
+      "source": "api_fixture.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {}
+    },
+    {
+      "name": "api_fixture_ps",
+      "source": "api_fixture.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {},
+      "alpha_test": true
+    },
+    {
+      "name": "native_unlit_vs_c0_s0",
+      "source_name": "native_unlit_vs",
+      "source": "material.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {
+        "NATIVE_COLOR": 0,
+        "NATIVE_MODEL": 0,
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_SKIN": 0
+      },
+      "static_index": 0,
+      "dynamic_index": 0
+    },
+    {
+      "name": "native_unlit_vs_c1_s0",
+      "source_name": "native_unlit_vs",
+      "source": "material.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {
+        "NATIVE_COLOR": 1,
+        "NATIVE_MODEL": 0,
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_SKIN": 0
+      },
+      "static_index": 1,
+      "dynamic_index": 0
+    },
+    {
+      "name": "native_lightmap_vs_c0_s0",
+      "source_name": "native_lightmap_vs",
+      "source": "material.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {
+        "NATIVE_COLOR": 0,
+        "NATIVE_MODEL": 0,
+        "NATIVE_LIGHTMAP": 1,
+        "NATIVE_SKIN": 0
+      },
+      "static_index": 0,
+      "dynamic_index": 0
+    },
+    {
+      "name": "native_lightmap_vs_c1_s0",
+      "source_name": "native_lightmap_vs",
+      "source": "material.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {
+        "NATIVE_COLOR": 1,
+        "NATIVE_MODEL": 0,
+        "NATIVE_LIGHTMAP": 1,
+        "NATIVE_SKIN": 0
+      },
+      "static_index": 1,
+      "dynamic_index": 0
+    },
+    {
+      "name": "native_model_vs_c0_s0",
+      "source_name": "native_model_vs",
+      "source": "material.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {
+        "NATIVE_COLOR": 0,
+        "NATIVE_MODEL": 1,
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_SKIN": 0
+      },
+      "static_index": 0,
+      "dynamic_index": 0
+    },
+    {
+      "name": "native_model_vs_c0_s1",
+      "source_name": "native_model_vs",
+      "source": "material.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {
+        "NATIVE_COLOR": 0,
+        "NATIVE_MODEL": 1,
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_SKIN": 1
+      },
+      "static_index": 0,
+      "dynamic_index": 1
+    },
+    {
+      "name": "native_model_vs_c1_s0",
+      "source_name": "native_model_vs",
+      "source": "material.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {
+        "NATIVE_COLOR": 1,
+        "NATIVE_MODEL": 1,
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_SKIN": 0
+      },
+      "static_index": 1,
+      "dynamic_index": 0
+    },
+    {
+      "name": "native_model_vs_c1_s1",
+      "source_name": "native_model_vs",
+      "source": "material.hlsl",
+      "stage": "vertex",
+      "entry": "VSMain",
+      "defines": {
+        "NATIVE_COLOR": 1,
+        "NATIVE_MODEL": 1,
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_SKIN": 1
+      },
+      "static_index": 1,
+      "dynamic_index": 1
+    },
+    {
+      "name": "native_unlit_ps",
+      "source": "material.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_LIT": 0,
+        "NATIVE_DEPTH": 0,
+        "NATIVE_TRANSITION": 0
+      },
+      "alpha_test": true
+    },
+    {
+      "name": "native_lightmap_ps",
+      "source": "material.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "NATIVE_LIGHTMAP": 1,
+        "NATIVE_LIT": 0,
+        "NATIVE_DEPTH": 0,
+        "NATIVE_TRANSITION": 0
+      },
+      "alpha_test": true
+    },
+    {
+      "name": "native_model_ps",
+      "source": "material.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_LIT": 1,
+        "NATIVE_DEPTH": 0,
+        "NATIVE_TRANSITION": 0
+      },
+      "alpha_test": true
+    },
+    {
+      "name": "native_depth_ps",
+      "source": "material.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "NATIVE_LIGHTMAP": 0,
+        "NATIVE_LIT": 0,
+        "NATIVE_DEPTH": 1,
+        "NATIVE_TRANSITION": 0
+      },
+      "alpha_test": true
+    },
+    {
+      "name": "native_transition_ps",
+      "source": "material.hlsl",
+      "stage": "fragment",
+      "entry": "PSMain",
+      "defines": {
+        "NATIVE_LIGHTMAP": 1,
+        "NATIVE_LIT": 0,
+        "NATIVE_DEPTH": 0,
+        "NATIVE_TRANSITION": 1
+      },
+      "alpha_test": true
+    }
+  ]
+}

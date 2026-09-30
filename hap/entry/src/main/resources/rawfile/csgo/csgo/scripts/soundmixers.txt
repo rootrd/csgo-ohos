@@ -1,0 +1,4 @@
+// CS:NO boot package: no sound mixing on the download page
+"MixGroups"
+{
+}

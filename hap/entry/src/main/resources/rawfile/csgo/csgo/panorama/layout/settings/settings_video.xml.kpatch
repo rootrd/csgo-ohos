@@ -1,0 +1,16 @@
+target: csgo/panorama/layout/settings/settings_video.xml
+@@ after: <Label text="#SFUI_Settings_Widescreen_16_10" value="2" id="aspectratio2"/>
+							<Label text="全面屏（手机）" value="3" id="aspectratio3"/>
+@@ after: <Label text="#SFUI_Settings_Fullscreen_Windowed" value="2" id="displaymode2"/>
+						</CSGOSettingsEnumDropDown>
+					</Panel>
+					<Panel class="horizontal-separator"/>
+					<!-- KISAK-ANDROID: frame rate cap in whole refreshes (kisak_fps_cap, appframework/sdlmgr.cpp -> DXVK sync interval; needs v-sync). -->
+					<Panel class="SettingsMenuDropdownContainer">
+						<Label text="帧率上限" class="half-width"/>
+						<CSGOSettingsEnumDropDown class="PopupButton White" id="KisakFpsCap" convar="kisak_fps_cap">
+							<Label text="跟随屏幕刷新率" value="0" id="kisakfpscap0" />
+							<Label text="60 帧" value="60" id="kisakfpscap60"/>
+							<Label text="40 帧" value="40" id="kisakfpscap40"/>
+@@ after: <include src="file://{resources}/scripts/settingsmenu_shared.js" />
+		<include src="file://{resources}/scripts/csno_video_hide.js" />

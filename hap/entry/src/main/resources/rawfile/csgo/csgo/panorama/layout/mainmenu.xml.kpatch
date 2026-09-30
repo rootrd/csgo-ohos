@@ -1,0 +1,6 @@
+target: csgo/panorama/layout/mainmenu.xml
+@@ after: file://{resources}/scripts/mainmenu.js
+		<include src="file://{resources}/scripts/csno_bridge.js" />
+		<include src="file://{resources}/scripts/csno_mainmenu.js" />
+@@ after: <include src="file://{resources}/styles/mainmenu.css" />
+		<include src="file://{resources}/styles/csno_cutout.css" />

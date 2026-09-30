@@ -1,0 +1,57 @@
+{
+  "app": {
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "targetSdkVersion": "5.0.0(12)",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "nativeCompiler": "BiSheng",
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\Administrator\\.ohos\\config\\default_hap_foXybM3t4NWzkhJT_KahL3m3HH9w6DZmsQvCAhpW3DE=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B5E4153DC12F0E20D46F29B991CB6424AF8D2B43A77DBA3E0344DE72F7DBF62D1EFB78D138A61EA",
+          "profile": "C:\\Users\\Administrator\\.ohos\\config\\default_hap_foXybM3t4NWzkhJT_KahL3m3HH9w6DZmsQvCAhpW3DE=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\Administrator\\.ohos\\config\\default_hap_foXybM3t4NWzkhJT_KahL3m3HH9w6DZmsQvCAhpW3DE=.p12",
+          "storePassword": "0000001BED339B81A5D3304CC1C09B0374197EA19218D7C09460C5D1B791F12B3375CBFDD35ABB807E32C8"
+        }
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

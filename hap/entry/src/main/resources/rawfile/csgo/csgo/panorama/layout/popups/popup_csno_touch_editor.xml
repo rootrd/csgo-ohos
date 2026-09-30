@@ -1,0 +1,57 @@
+<root>
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+		<include src="file://{resources}/styles/csno_touch.css" />
+	</styles>
+
+	<scripts>
+		<include src="file://{resources}/scripts/csno_bridge.js" />
+		<include src="file://{resources}/scripts/csno_touch_editor.js" />
+	</scripts>
+
+	<!-- CS:NO (09-28, 0.1.5): full-screen touch layout editor.  The screen here is the game's window, the same area the
+	     Android touch overlay covers, so a button put at (x, y) here sits at (x, y) in a match. -->
+	<PopupCustomLayout class="csno-editor" popupbackground="dim" onload="CsnoTouchEditor.Init();" oncancel="CsnoTouchEditor.Cancel();">
+		<Panel id="CsnoGrid" class="csno-grid" />
+		<Panel id="CsnoCircles" class="csno-layer" hittest="false" hittestchildren="true" />
+
+		<Panel id="CsnoSide" class="csno-side">
+			<Label id="CsnoSelTitle" class="csno-side-title" text="点一个按钮来编辑" />
+			<Label class="csno-row-hint" text="选中后点屏幕上任意位置，按钮就移到那里。" />
+
+			<Panel class="csno-side-row">
+				<Label class="csno-side-label" text="名字" />
+				<TextEntry id="CsnoName" class="csno-name" maxchars="6" />
+			</Panel>
+			<Panel class="csno-side-row">
+				<Label class="csno-side-label" text="大小" />
+				<Slider id="CsnoSize" class="HorizontalSlider csno-slider" direction="horizontal" min="25" max="250" />
+				<Label id="CsnoSizeValue" class="csno-value" text="" />
+			</Panel>
+			<Panel class="csno-side-row">
+				<Label class="csno-side-label" text="透明度" />
+				<Slider id="CsnoAlpha" class="HorizontalSlider csno-slider" direction="horizontal" min="10" max="100" />
+				<Label id="CsnoAlphaValue" class="csno-value" text="" />
+			</Panel>
+			<Panel class="csno-side-row">
+				<Label class="csno-side-label" text="微调" />
+				<Button class="csno-small" onactivate="CsnoTouchEditor.Nudge( -1, 0 );"><Label class="csno-btn-text" text="←" /></Button>
+				<Button class="csno-small" onactivate="CsnoTouchEditor.Nudge( 0, -1 );"><Label class="csno-btn-text" text="↑" /></Button>
+				<Button class="csno-small" onactivate="CsnoTouchEditor.Nudge( 0, 1 );"><Label class="csno-btn-text" text="↓" /></Button>
+				<Button class="csno-small" onactivate="CsnoTouchEditor.Nudge( 1, 0 );"><Label class="csno-btn-text" text="→" /></Button>
+			</Panel>
+			<Panel class="csno-side-row">
+				<Button id="CsnoHide" class="csno-action" onactivate="CsnoTouchEditor.ToggleHidden();"><Label id="CsnoHideLabel" class="csno-btn-text" text="隐藏这个按钮" /></Button>
+			</Panel>
+			<Panel class="horizontal-separator" />
+			<Panel class="csno-side-row">
+				<Button class="csno-action csno-action--primary" onactivate="CsnoTouchEditor.Save();"><Label class="csno-btn-text" text="保存" /></Button>
+				<Button class="csno-action" onactivate="CsnoTouchEditor.Cancel();"><Label class="csno-btn-text" text="取消" /></Button>
+			</Panel>
+			<Panel class="csno-side-row">
+				<Button class="csno-action" onactivate="CsnoTouchEditor.MoveSide();"><Label class="csno-btn-text" text="面板换边" /></Button>
+				<Button class="csno-action" onactivate="CsnoTouchEditor.Defaults();"><Label class="csno-btn-text" text="全部恢复默认" /></Button>
+			</Panel>
+		</Panel>
+	</PopupCustomLayout>
+</root>

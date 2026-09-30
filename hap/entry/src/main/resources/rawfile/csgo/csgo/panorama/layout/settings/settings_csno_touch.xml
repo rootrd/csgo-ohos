@@ -1,0 +1,80 @@
+<root>
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+		<include src="file://{resources}/styles/settings/settings.css" />
+		<include src="file://{resources}/styles/mainmenu.css"/>
+		<include src="file://{resources}/styles/csno_touch.css"/>
+	</styles>
+
+	<scripts>
+		<include src="file://{resources}/scripts/settingsmenu_shared.js" />
+		<include src="file://{resources}/scripts/csno_bridge.js" />
+		<include src="file://{resources}/scripts/csno_touch_settings.js" />
+	</scripts>
+
+	<!-- CS:NO (09-28, 0.1.5): 触控键位 -- the on-screen controls of the Android app (TouchControls.java) -->
+	<Panel useglobalcontext="true" class="SettingsMenuTab" onload="CsnoTouchSettings.Init();">
+		<Panel class="SettingsMenuTabContent vscroll">
+			<Panel class="SettingsBackground">
+				<Panel class="SettingsSectionTitleContianer">
+					<Label class="SettingsSectionTitleLabel" text="触控键位" />
+				</Panel>
+
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="按钮位置、大小、透明度、名字" />
+					<Button class="csno-action csno-action--primary" onactivate="CsnoTouchSettings.OpenEditor();">
+						<Label class="csno-btn-text" text="打开键位编辑器" />
+					</Button>
+				</Panel>
+				<Label class="csno-row-hint" text="在编辑器里先点一个按钮，再点屏幕上的位置把它移过去；右侧面板可以调大小、透明度、改名字或隐藏。" />
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="动态摇杆" />
+					<ToggleButton id="CsnoDynamicStick" class="PopupButton" onactivate="CsnoTouchSettings.OnDynamic();">
+						<Label id="CsnoDynamicLabel" class="csno-btn-text" text="开" />
+					</ToggleButton>
+				</Panel>
+				<Label class="csno-row-hint" text="开：左手拇指按在屏幕左下方任意位置，摇杆就以按下的地方为中心。关：摇杆固定在原位。" />
+				<Panel class="horizontal-separator"/>
+
+				<!-- 0.2.3 (老板): 隐藏按键，键鼠用 -->
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="隐藏全部触控按键（外接键盘鼠标用）" />
+					<ToggleButton id="CsnoHideAll" class="PopupButton" onactivate="CsnoTouchSettings.OnHideAll();">
+						<Label id="CsnoHideAllLabel" class="csno-btn-text" text="关" />
+					</ToggleButton>
+				</Panel>
+				<Label class="csno-row-hint" text="开：对局里屏幕上不显示摇杆和按钮，用键盘鼠标玩（键盘 Esc 打开菜单，回这里可以关掉）。菜单里照常点屏幕。" />
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="整体透明度" />
+					<Slider id="CsnoOpacity" class="HorizontalSlider csno-slider" direction="horizontal" min="20" max="100" />
+					<Label id="CsnoOpacityValue" class="csno-value" text="100%" />
+				</Panel>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="恢复默认键位" />
+					<Button class="csno-action" onactivate="CsnoTouchSettings.Reset();">
+						<Label class="csno-btn-text" text="恢复默认" />
+					</Button>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsSectionTitleContianer">
+					<Label class="SettingsSectionTitleLabel" text="诊断日志" />
+				</Panel>
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="出问题时上传日志帮助修复" />
+					<ToggleButton id="CsnoUpload" class="PopupButton" onactivate="CsnoTouchSettings.OnUpload();">
+						<Label id="CsnoUploadLabel" class="csno-btn-text" text="开" />
+					</ToggleButton>
+				</Panel>
+				<Label class="csno-row-hint" text="上传手机型号、处理器、GPU 和驱动版本、安卓版本和本游戏自己的运行日志；不上传 IMEI、手机号、账号、位置、通讯录或你的文件。" />
+				<Label id="CsnoInfo" class="csno-row-hint" text="" />
+			</Panel>
+		</Panel>
+	</Panel>
+</root>

@@ -1,0 +1,1245 @@
+diff --git a/meson.build b/meson.build
+index fa08559..80d1380 100644
+--- a/meson.build
++++ b/meson.build
+@@ -12,15 +12,9 @@ dxvk_is_msvc = cpp.get_argument_syntax() == 'msvc'
+ compiler_args = [
+   '-O3', # Optimizes for speed. -Os fails to compile due to compiler bug
+   '-pipe', # Enables use of pipes instead of temporary files for communication between the various stages of compilation; faster compilation, uses more memory, no impact on code
+-  '-march=x86-64', # SSE2 required
+-  '-mtune=x86-64', # Tuning for SSE2 CPUs 
+-  '-msse',
+-  '-msse2',
+-  '-mfpmath=sse',
+   '-fno-semantic-interposition', # Semantic interposition prevents a range of inter-procedural optimizations
+   '-ffunction-sections', # Place each function into its own section, improves locality of reference in the instruction space
+   '-fdata-sections', # Place each data item into its own section, improves locality of reference in the instruction space
+-  '-flto=auto', # Enables FullLTO for Clang and GCC
+   '-Wimplicit-fallthrough',
+   '-Wno-deprecated', # Silences warnings about use of -mtune=x86-64
+   # gcc
+@@ -30,7 +24,6 @@ compiler_args = [
+   '-Wno-misleading-indentation',
+   '-Wno-cast-function-type', # Needed for GetProcAddress.
+   # clang; fails to compile due to non-compliance with Clang requirements.
+-  '-fwhole-program-vtables', # Requires FullLTO, enables single-implementation devirtualization and virtual constant propagation
+   '-Wno-unused-private-field',
+   '-Wno-microsoft-exception-spec',
+   '-Wno-extern-c-compat',
+@@ -38,8 +31,12 @@ compiler_args = [
+   '-Wno-missing-braces',
+ ]
+ 
++# Keep architecture selection separate from Meson's LTO policy.
++if cpu_family == 'x86_64' or cpu_family == 'x86'
++  compiler_args += ['-march=x86-64', '-mtune=x86-64', '-msse2']
++endif
++
+ link_args = [
+-  '-s', # Removes all symbol table and relocation information from the executable
+   '-Wl,--gc-sections', # Removes function and data duplicates from sections
+ ]
+ 
+@@ -166,6 +163,12 @@ else
+     dxvk_version += [ padded ]
+   endforeach
+   dxvk_so_version = {'version': dxvk_abi_version + '.' + dxvk_version[0] + dxvk_version[1] + dxvk_version[2]}
++  if platform == 'android'
++    # Android APK native libraries use unversioned .so names.
++    dxvk_so_version = {}
++    # Render pass timing probe reports through logcat.
++    link_args += ['-llog']
++  endif
+ 
+   wrc           = find_program('touch')
+   wrc_generator = generator(wrc, output : [ '@BASENAME@_ignored.h' ], arguments : [ '@OUTPUT@' ] )
+@@ -195,10 +198,9 @@ else
+   dxvk_name_prefix = 'dxvk_'
+   dxvk_pkg_prefix = 'dxvk-'
+ 
+-  link_args += [
+-    '-static-libgcc',
+-    '-static-libstdc++',
+-  ]
++  if platform != 'android'
++    link_args += ['-static-libgcc', '-static-libstdc++']
++  endif
+ endif
+ 
+ dxvk_include_path = include_directories(dxvk_include_dirs)
+diff --git a/src/d3d9/d3d9_device.cpp b/src/d3d9/d3d9_device.cpp
+index 90ce219..451604b 100644
+--- a/src/d3d9/d3d9_device.cpp
++++ b/src/d3d9/d3d9_device.cpp
+@@ -27,6 +27,10 @@
+ 
+ #include <algorithm>
+ #include <cfloat>
++#ifdef __ANDROID__
++#include <android/log.h>
++#include <sys/system_properties.h>
++#endif
+ #ifdef MSC_VER
+ #pragma fenv_access (on)
+ #endif
+@@ -1907,6 +1911,14 @@ namespace dxvk {
+             && (Flags & (D3DCLEAR_ZBUFFER | D3DCLEAR_STENCIL))))
+       return D3DERR_INVALIDCALL;
+ 
++    // Bind the render targets set since the last draw first. A partial clear of
++    // a view that is not part of the backend's current framebuffer spills the
++    // render pass and runs a separate load/store pass just for the clear; bound,
++    // it becomes an attachment clear inside the pass the following draws use.
++    // Source clears each view's viewport right after switching targets.
++    if (m_dirty.test(D3D9DeviceDirtyFlag::Framebuffer))
++      BindFramebuffer();
++
+     const auto& vp = m_state.viewport;
+     const auto& sc = m_state.scissorRect;
+ 
+@@ -4235,6 +4247,15 @@ namespace dxvk {
+     const RGNDATA* pDirtyRegion,
+           DWORD dwFlags) {
+ 
++#ifdef __ANDROID__
++    char hintMode[PROP_VALUE_MAX] = { };
++    __system_property_get("debug.csgo.dxvk_defer_hints", hintMode);
++    bool deferHints = hintMode[0] == '1';
++    if (m_deferHintFlushes.exchange(deferHints, std::memory_order_relaxed) != deferHints)
++      __android_log_print(ANDROID_LOG_INFO, "CSGO-DXVK-Passes",
++        "[flush policy] defer_hints=%u", unsigned(deferHints));
++#endif
++
+     if (m_cursor.IsSoftwareCursor()) {
+       D3D9_SOFTWARE_CURSOR* pSoftwareCursor = m_cursor.GetSoftwareCursor();
+ 
+@@ -4763,6 +4784,9 @@ namespace dxvk {
+     // Ensure we support real BC formats and unofficial vendor ones.
+     enabled.core.features.textureCompressionBC = VK_TRUE;
+ 
++    // ASTC LDR backs the ASTC4x4/ASTC6x6 FourCCs.
++    enabled.core.features.textureCompressionASTC_LDR = supported.core.features.textureCompressionASTC_LDR;
++
+     // SM2 level hardware
+     enabled.core.features.occlusionQueryPrecise = VK_TRUE;
+ 
+@@ -5937,6 +5961,14 @@ namespace dxvk {
+ 
+ 
+   void D3D9DeviceEx::ConsiderFlush(GpuFlushType FlushType) {
++#ifdef __ANDROID__
++    // A/B probe for mobile tilers: keep render-target and EndScene hints from
++    // splitting a frame into extra submissions. Real synchronization, explicit
++    // flushes, memory-pressure flushes and Present still submit normally.
++    if (m_deferHintFlushes.load(std::memory_order_relaxed)
++     && (FlushType == GpuFlushType::ImplicitStrongHint || FlushType == GpuFlushType::ImplicitWeakHint))
++      return;
++#endif
+     uint64_t chunkId = GetCurrentSequenceNumber();
+     uint64_t submissionId = m_submissionFence->value();
+ 
+diff --git a/src/d3d9/d3d9_device.h b/src/d3d9/d3d9_device.h
+index 41a9766..868bd7b 100644
+--- a/src/d3d9/d3d9_device.h
++++ b/src/d3d9/d3d9_device.h
+@@ -1694,6 +1694,9 @@ namespace dxvk {
+ 
+     uint64_t                        m_flushSeqNum = 0ull;
+     GpuFlushTracker                 m_flushTracker;
++#ifdef __ANDROID__
++    std::atomic<bool>                m_deferHintFlushes = { false };
++#endif
+ 
+     std::atomic<int64_t>            m_availableMemory = { 0 };
+ 
+diff --git a/src/d3d9/d3d9_format.cpp b/src/d3d9/d3d9_format.cpp
+index b8db7c8..dd741d7 100644
+--- a/src/d3d9/d3d9_format.cpp
++++ b/src/d3d9/d3d9_format.cpp
+@@ -421,6 +421,16 @@ namespace dxvk {
+         { D3D9ConversionFormat_YV12, VK_FORMAT_B8G8R8A8_UNORM }
+       };
+ 
++      case D3D9Format::ASTC4x4: return {
++        VK_FORMAT_ASTC_4x4_UNORM_BLOCK,
++        VK_FORMAT_ASTC_4x4_SRGB_BLOCK,
++        VK_IMAGE_ASPECT_COLOR_BIT };
++
++      case D3D9Format::ASTC6x6: return {
++        VK_FORMAT_ASTC_6x6_UNORM_BLOCK,
++        VK_FORMAT_ASTC_6x6_SRGB_BLOCK,
++        VK_IMAGE_ASPECT_COLOR_BIT };
++
+       case D3D9Format::RAWZ: return {}; // Unsupported
+ 
+       case D3D9Format::R16:  return {}; // Unsupported
+@@ -490,6 +500,9 @@ namespace dxvk {
+     // Only Intel supports D24FS8 natively
+     m_d24fs8Support = isIntel;
+ 
++    // ASTC is only exposed when the device actually enables it
++    m_astcSupport = adapter->features().core.features.textureCompressionASTC_LDR;
++
+     if (!m_d24s8Support)
+       Logger::info("D3D9: VK_FORMAT_D24_UNORM_S8_UINT -> VK_FORMAT_D32_SFLOAT_S8_UINT");
+ 
+@@ -527,6 +540,9 @@ namespace dxvk {
+     if (Format == D3D9Format::D24FS8 && !m_d24fs8Support)
+       return D3D9_VK_FORMAT_MAPPING();
+ 
++    if ((Format == D3D9Format::ASTC4x4 || Format == D3D9Format::ASTC6x6) && !m_astcSupport)
++      return D3D9_VK_FORMAT_MAPPING();
++
+     if (!m_d24s8Support && mapping.FormatColor == VK_FORMAT_D24_UNORM_S8_UINT)
+       mapping.FormatColor = (mapping.Aspect & VK_IMAGE_ASPECT_STENCIL_BIT) ? VK_FORMAT_D32_SFLOAT_S8_UINT : VK_FORMAT_D32_SFLOAT;
+ 
+diff --git a/src/d3d9/d3d9_format.h b/src/d3d9/d3d9_format.h
+index e3dd526..262a470 100644
+--- a/src/d3d9/d3d9_format.h
++++ b/src/d3d9/d3d9_format.h
+@@ -107,6 +107,10 @@ namespace dxvk {
+     YV12 = MAKEFOURCC('Y', 'V', '1', '2'),
+     OPAQUE_420 = MAKEFOURCC('4', '2', '0', 'O'),
+ 
++    // CSGO-Source-Linux: pre-encoded ASTC LDR blocks, no D3D9 equivalent
++    ASTC4x4 = MAKEFOURCC('A', 'S', '4', '4'),
++    ASTC6x6 = MAKEFOURCC('A', 'S', '6', '6'),
++
+     // Not supported but exist
+     AI44 = MAKEFOURCC('A', 'I', '4', '4'),
+     IA44 = MAKEFOURCC('I', 'A', '4', '4'),
+@@ -241,6 +245,8 @@ namespace dxvk {
+ 
+     bool m_d32flockableSupport;
+     bool m_d24fs8Support;
++
++    bool m_astcSupport;
+   };
+ 
+   inline bool IsFourCCFormat(D3D9Format format) {
+diff --git a/src/d3d9/d3d9_main.cpp b/src/d3d9/d3d9_main.cpp
+index 3fe778a..b564a18 100644
+--- a/src/d3d9/d3d9_main.cpp
++++ b/src/d3d9/d3d9_main.cpp
+@@ -20,8 +20,14 @@ namespace dxvk {
+     if (!ppDirect3D9Ex)
+       return D3DERR_INVALIDCALL;
+ 
+-    *ppDirect3D9Ex = ref(new D3D9InterfaceEx(Extended, pOverrideList, OverrideCount));
+-    return D3D_OK;
++    *ppDirect3D9Ex = nullptr;
++    try {
++      *ppDirect3D9Ex = ref(new D3D9InterfaceEx(Extended, pOverrideList, OverrideCount));
++      return D3D_OK;
++    } catch (const DxvkError& error) {
++      Logger::err(str::format("CreateD3D9: ", error.message()));
++      return D3DERR_NOTAVAILABLE;
++    }
+   }
+ }
+ 
+diff --git a/src/d3d9/d3d9_names.cpp b/src/d3d9/d3d9_names.cpp
+index ae7a7df..580c90d 100644
+--- a/src/d3d9/d3d9_names.cpp
++++ b/src/d3d9/d3d9_names.cpp
+@@ -74,6 +74,8 @@ namespace dxvk {
+       // Driver Hacks / Unofficial Formats
+       ENUM_NAME(D3D9Format::ATI1);
+       ENUM_NAME(D3D9Format::ATI2);
++      ENUM_NAME(D3D9Format::ASTC4x4);
++      ENUM_NAME(D3D9Format::ASTC6x6);
+       ENUM_NAME(D3D9Format::INST);
+       ENUM_NAME(D3D9Format::DF24);
+       ENUM_NAME(D3D9Format::DF16);
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+index b2efa51..c29cb59 100644
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -854,8 +854,9 @@ namespace dxvk {
+     Rc<DxvkImage> backBuffer;
+ 
+     status = m_wctx->presenter->acquireNextImage(sync, backBuffer);
++    const bool acquired = status == VK_SUCCESS || status == VK_SUBOPTIMAL_KHR;
+ 
+-    if (status >= 0 && status != VK_NOT_READY) {
++    if (acquired) {
+       VkRect2D srcRect = {
+         {  int32_t(m_srcRect.left),                    int32_t(m_srcRect.top)                    },
+         { uint32_t(m_srcRect.right - m_srcRect.left), uint32_t(m_srcRect.bottom - m_srcRect.top) } };
+@@ -906,6 +907,10 @@ namespace dxvk {
+         cBlitter->present(contextObjects,
+           cDstView, cDstRect, cSrcView, cSrcRect);
+ 
++#ifdef __ANDROID__
++        ctx->profileRenderPassFrame();
++#endif
++
+         // Submit command list and present
+         ctx->synchronizeWsi(cSync);
+         ctx->flushCommandList(nullptr, nullptr);
+@@ -917,7 +922,7 @@ namespace dxvk {
+     }
+ 
+     if (m_latencyTracker) {
+-      if (status == VK_SUCCESS)
++      if (acquired)
+         m_latencyTracker->notifyCpuPresentEnd(m_wctx->frameId);
+       else
+         m_latencyTracker->discardTimings();
+@@ -927,7 +932,7 @@ namespace dxvk {
+ 
+     DxvkLatencyStats latencyStats = { };
+ 
+-    if (m_latencyTracker && status == VK_SUCCESS) {
++    if (m_latencyTracker && acquired) {
+       latencyStats = m_latencyTracker->getStatistics(m_wctx->frameId);
+       m_latencyTracker->sleepAndBeginFrame(m_wctx->frameId + 1, std::abs(m_targetFrameRate));
+ 
+diff --git a/src/dxvk/dxvk_context.cpp b/src/dxvk/dxvk_context.cpp
+index 89936c8..4acb900 100644
+--- a/src/dxvk/dxvk_context.cpp
++++ b/src/dxvk/dxvk_context.cpp
+@@ -5,6 +5,13 @@
+ 
+ #include "dxvk_device.h"
+ #include "dxvk_context.h"
++
++#ifdef __ANDROID__
++#include <android/log.h>
++#include <dlfcn.h>
++#include <sys/system_properties.h>
++#include <unwind.h>
++#endif
+ #include "framepacer/dxvk_framepacer.h"
+ 
+ namespace dxvk {
+@@ -3301,10 +3308,356 @@ namespace dxvk {
+   
+   
+   void DxvkContext::writeTimestamp(const Rc<DxvkQuery>& query) {
++#ifdef __ANDROID__
++    // Mobile tilers may defer the actual rendering until the end of the pass.
++    // Place timestamps outside the render pass, without submitting the command
++    // buffer: a submit here would include CPU feed gaps in pass measurements.
++    this->spillRenderPass(true);
++#endif
++    m_queryManager.writeTimestamp(m_cmd, query);
++  }
++
++
++#ifdef __ANDROID__
++  // Return addresses of the code ending a render pass, as library+offset, so
++  // they can be symbolized offline against the unstripped libraries.
++  static std::string profileBacktrace() {
++    struct State { uintptr_t frames[12]; uint32_t count; } state = { { }, 0u };
++
++    _Unwind_Backtrace([] (_Unwind_Context* context, void* data) {
++      auto state = static_cast<State*>(data);
++      uintptr_t pc = _Unwind_GetIP(context);
++
++      if (pc && state->count < 12u)
++        state->frames[state->count++] = pc;
++
++      return state->count < 12u ? _URC_NO_REASON : _URC_END_OF_STACK;
++    }, &state);
++
++    std::string result;
++
++    for (uint32_t i = 2u; i < state.count; i++) {
++      Dl_info info = { };
++
++      if (!dladdr(reinterpret_cast<void*>(state.frames[i]), &info) || !info.dli_fname)
++        continue;
++
++      const char* name = std::strrchr(info.dli_fname, '/');
++      result += str::format(i > 2u ? " " : "", name ? name + 1 : info.dli_fname, "+0x",
++        std::hex, state.frames[i] - reinterpret_cast<uintptr_t>(info.dli_fbase) - 1u);
++    }
++
++    return result;
++  }
++
++
++  Rc<DxvkQuery> DxvkContext::profileTimestamp() {
++    Rc<DxvkQuery> query = m_device->createGpuQuery(VK_QUERY_TYPE_TIMESTAMP, 0, 0);
+     m_queryManager.writeTimestamp(m_cmd, query);
++    return query;
+   }
+ 
+ 
++  void DxvkContext::profilePassBegin() {
++    PassProfileMark& mark = m_passProfileCurrent.passes.emplace_back();
++    mark.begin = profileTimestamp();
++
++    // Fragment invocations against the render area show overdraw. The query
++    // becomes active with the other statistics queries when the pass begins.
++    if (m_device->features().core.features.pipelineStatisticsQuery) {
++      mark.stats = m_device->createGpuQuery(VK_QUERY_TYPE_PIPELINE_STATISTICS, 0, 0);
++      m_queryManager.enableQuery(m_cmd, mark.stats);
++    }
++    m_passProfileDrawBase = m_cmd->statCounters().getCtr(DxvkStatCounter::CmdDrawCalls);
++  }
++
++
++  void DxvkContext::profilePassEnd() {
++    if (m_passProfileCurrent.passes.empty() || m_passProfileCurrent.passes.back().end != nullptr)
++      return;
++
++    PassProfileMark& mark = m_passProfileCurrent.passes.back();
++
++    profileShaderEnd();
++
++    if (mark.stats != nullptr)
++      m_queryManager.disableQuery(m_cmd, mark.stats);
++
++    mark.end = profileTimestamp();
++    mark.draws = m_cmd->statCounters().getCtr(DxvkStatCounter::CmdDrawCalls) - m_passProfileDrawBase;
++
++    // Label: render area, then format / load op / store op of each attachment.
++    // Load: L=load C=clear D=dont-care N=none; store: S=store D=dont-care N=none.
++    auto loadOp = [] (VkAttachmentLoadOp op) {
++      return op == VK_ATTACHMENT_LOAD_OP_LOAD ? 'L' : op == VK_ATTACHMENT_LOAD_OP_CLEAR ? 'C'
++           : op == VK_ATTACHMENT_LOAD_OP_DONT_CARE ? 'D' : 'N';
++    };
++    auto storeOp = [] (VkAttachmentStoreOp op) {
++      return op == VK_ATTACHMENT_STORE_OP_STORE ? 'S' : op == VK_ATTACHMENT_STORE_OP_DONT_CARE ? 'D' : 'N';
++    };
++
++    const auto& rendering = m_state.om.renderingInfo.rendering;
++    std::string label = str::format(rendering.renderArea.extent.width, "x", rendering.renderArea.extent.height,
++      "+", rendering.renderArea.offset.x, ",", rendering.renderArea.offset.y);
++
++    for (uint32_t i = 0; i < MaxNumRenderTargets; i++) {
++      const DxvkAttachment& target = m_state.om.framebufferInfo.getColorTarget(i);
++
++      if (target.view == nullptr)
++        continue;
++
++      const auto& attachment = m_state.om.renderingInfo.color[i];
++      VkExtent3D extent = target.view->image()->info().extent;
++      label += str::format(" C", i, ":f", uint32_t(target.view->info().format), ":",
++        extent.width, "x", extent.height, ":", loadOp(attachment.loadOp), storeOp(attachment.storeOp),
++        attachment.resolveMode != VK_RESOLVE_MODE_NONE ? "R" : "");
++    }
++
++    const DxvkAttachment& depth = m_state.om.framebufferInfo.getDepthTarget();
++
++    if (depth.view != nullptr) {
++      const auto& d = m_state.om.renderingInfo.depth;
++      const auto& st = m_state.om.renderingInfo.stencil;
++      VkExtent3D extent = depth.view->image()->info().extent;
++      label += str::format(" D:f", uint32_t(depth.view->info().format), ":", extent.width, "x", extent.height,
++        ":", loadOp(d.loadOp), storeOp(d.storeOp), "/", loadOp(st.loadOp), storeOp(st.storeOp));
++    }
++
++    mark.label = std::move(label);
++    mark.endedBy = profileBacktrace();
++  }
++
++
++  void DxvkContext::profileShaderDraw() {
++    if (!m_device->features().core.features.pipelineStatisticsQuery || m_passProfileCurrent.passes.empty())
++      return;
++
++    auto& shaders = m_passProfileCurrent.passes.back().shaders;
++    const auto& current = m_state.gp.shaders.fs;
++    if (!shaders.empty() && !shaders.back().ended && shaders.back().shader == current)
++      return;
++
++    profileShaderEnd();
++    ShaderProfileMark& mark = shaders.emplace_back();
++    mark.shader = current;
++    mark.stats = m_device->createGpuQuery(VK_QUERY_TYPE_PIPELINE_STATISTICS, 0, 0);
++    mark.draws = m_cmd->statCounters().getCtr(DxvkStatCounter::CmdDrawCalls);
++    // These query boundaries remain inside the existing render pass. The
++    // counts diagnose fragment work; their instrumented timings are not FPS.
++    m_queryManager.enableQuery(m_cmd, mark.stats);
++  }
++
++
++  void DxvkContext::profileShaderEnd() {
++    if (m_passProfileCurrent.passes.empty())
++      return;
++    auto& shaders = m_passProfileCurrent.passes.back().shaders;
++    if (shaders.empty() || shaders.back().ended)
++      return;
++
++    auto& mark = shaders.back();
++    m_queryManager.disableQuery(m_cmd, mark.stats);
++    mark.draws = m_cmd->statCounters().getCtr(DxvkStatCounter::CmdDrawCalls) - mark.draws;
++    mark.ended = true;
++  }
++
++
++  bool DxvkContext::profileResolveFrame(const PassProfileFrame& frame) {
++    auto time = [] (const Rc<DxvkQuery>& query, uint64_t& value) {
++      DxvkQueryData data = { };
++      DxvkGpuQueryStatus status = query->getData(data);
++      value = data.timestamp.time;
++      return status;
++    };
++
++    std::vector<uint64_t> stamps;
++    stamps.reserve(2u * frame.passes.size() + 2u);
++
++    std::vector<const Rc<DxvkQuery>*> queries = { &frame.start };
++
++    for (const auto& pass : frame.passes) {
++      queries.push_back(&pass.begin);
++      queries.push_back(&pass.end);
++    }
++
++    for (const auto& pass : frame.passes) {
++      DxvkQueryData data = { };
++
++      if (pass.stats != nullptr && pass.stats->getData(data) == DxvkGpuQueryStatus::Pending)
++        return false;
++
++      for (const auto& shader : pass.shaders) {
++        if (shader.stats->getData(data) == DxvkGpuQueryStatus::Pending)
++          return false;
++      }
++    }
++
++    queries.push_back(&frame.end);
++
++    bool valid = true;
++
++    for (auto query : queries) {
++      uint64_t value = 0u;
++
++      if (*query == nullptr) {
++        valid = false;
++        continue;
++      }
++
++      DxvkGpuQueryStatus status = time(*query, value);
++
++      if (status == DxvkGpuQueryStatus::Pending)
++        return false;
++
++      valid &= status == DxvkGpuQueryStatus::Available;
++      stamps.push_back(value);
++    }
++
++    if (!valid || (!m_passProfileStats.empty() && m_passProfileStats.size() != frame.passes.size())) {
++      m_passProfileMismatched += 1u;
++      return true;
++    }
++
++    double period = double(m_device->adapter()->deviceProperties().limits.timestampPeriod) * 1e-6;
++
++    if (m_passProfileStats.empty()) {
++      m_passProfileStats.resize(frame.passes.size());
++
++      for (size_t i = 0; i < frame.passes.size(); i++) {
++        m_passProfileStats[i].label = frame.passes[i].label;
++        m_passProfileStats[i].endedBy = frame.passes[i].endedBy;
++      }
++    }
++
++    for (size_t i = 0; i < frame.passes.size(); i++) {
++      if (frame.passes[i].stats != nullptr) {
++        DxvkQueryData data = { };
++
++        if (frame.passes[i].stats->getData(data) == DxvkGpuQueryStatus::Available) {
++          m_passProfileStats[i].vsInvocations += double(data.statistic.vsInvocations);
++          m_passProfileStats[i].iaPrimitives += double(data.statistic.iaPrimitives);
++          m_passProfileStats[i].clipInvocations += double(data.statistic.clipInvocations);
++          m_passProfileStats[i].primitives += double(data.statistic.clipPrimitives);
++          m_passProfileStats[i].fsInvocations += double(data.statistic.fsInvocations);
++        }
++      }
++
++      m_passProfileStats[i].gapMs += double(stamps[2u * i + 1u] - stamps[2u * i]) * period;
++      m_passProfileStats[i].passMs += double(stamps[2u * i + 2u] - stamps[2u * i + 1u]) * period;
++      m_passProfileStats[i].draws += double(frame.passes[i].draws);
++
++      for (const auto& shader : frame.passes[i].shaders) {
++        DxvkQueryData data = { };
++        if (shader.stats->getData(data) != DxvkGpuQueryStatus::Available)
++          continue;
++        std::string name = shader.shader != nullptr ? shader.shader->debugName() : "none";
++        auto& stat = m_passProfileStats[i].shaders[name];
++        stat.draws += double(shader.draws);
++        stat.vs += double(data.statistic.vsInvocations);
++        stat.ia += double(data.statistic.iaPrimitives);
++        stat.fs += double(data.statistic.fsInvocations);
++      }
++    }
++
++    m_passProfileTailMs += double(stamps.back() - stamps[stamps.size() - 2u]) * period;
++    m_passProfileFrameMs += double(stamps.back() - stamps.front()) * period;
++    m_passProfileFrames += 1u;
++    return true;
++  }
++
++
++  void DxvkContext::profileReport() {
++    const char* tag = "CSGO-DXVK-Passes";
++    double n = std::max(1.0, double(m_passProfileFrames));
++    double passTotal = 0.0, gapTotal = m_passProfileTailMs;
++
++    for (const auto& stat : m_passProfileStats) {
++      passTotal += stat.passMs;
++      gapTotal += stat.gapMs;
++    }
++
++    __android_log_print(ANDROID_LOG_INFO, tag,
++      "[pass profile] tag=%s frames=%u mismatched=%u passes=%zu frame_ms=%.4f pass_ms=%.4f gap_ms=%.4f",
++      m_passProfileTag.c_str(), m_passProfileFrames, m_passProfileMismatched, m_passProfileStats.size(),
++      m_passProfileFrameMs / n, passTotal / n, gapTotal / n);
++
++    for (size_t i = 0; i < m_passProfileStats.size(); i++) {
++      const auto& stat = m_passProfileStats[i];
++      __android_log_print(ANDROID_LOG_INFO, tag,
++        "[pass profile] tag=%s #%zu gap_ms=%.4f pass_ms=%.4f draws=%.1f vs=%.0f ia=%.0f clip_in=%.0f prims=%.0f fs=%.0f %s",
++        m_passProfileTag.c_str(), i, stat.gapMs / n, stat.passMs / n, stat.draws / n,
++        stat.vsInvocations / n, stat.iaPrimitives / n, stat.clipInvocations / n,
++        stat.primitives / n, stat.fsInvocations / n, stat.label.c_str());
++      __android_log_print(ANDROID_LOG_INFO, tag,
++        "[pass profile] tag=%s #%zu ended_by %s", m_passProfileTag.c_str(), i, stat.endedBy.c_str());
++
++      for (const auto& shader : stat.shaders) {
++        __android_log_print(ANDROID_LOG_INFO, tag,
++          "[pass profile] tag=%s #%zu shader=%s draws=%.1f vs=%.0f ia=%.0f fs=%.0f",
++          m_passProfileTag.c_str(), i, shader.first.c_str(), shader.second.draws / n,
++          shader.second.vs / n, shader.second.ia / n, shader.second.fs / n);
++      }
++    }
++
++    __android_log_print(ANDROID_LOG_INFO, tag, "[pass profile] tag=%s tail_gap_ms=%.4f end",
++      m_passProfileTag.c_str(), m_passProfileTailMs / n);
++  }
++
++
++  void DxvkContext::profileRenderPassFrame() {
++    char value[PROP_VALUE_MAX] = { };
++    __system_property_get("debug.csgo.dxvk_passes", value);
++
++    if (m_passProfileProperty != value) {
++      m_passProfileProperty = value;
++
++      std::string text = value;
++      size_t separator = text.find(':');
++      uint32_t frames = uint32_t(std::strtoul(text.c_str(), nullptr, 10));
++
++      if (frames && !m_passProfileRemaining && m_passProfilePending.empty()) {
++        char shaderStats[PROP_VALUE_MAX] = { };
++        __system_property_get("debug.csgo.dxvk_shader_stats", shaderStats);
++        m_passProfileShaderStats = shaderStats[0] == '1';
++        m_passProfileTag = separator != std::string::npos ? text.substr(separator + 1u) : std::string();
++        m_passProfileWanted = std::min(frames, 600u);
++        m_passProfileRemaining = m_passProfileWanted;
++        m_passProfileFrames = 0u;
++        m_passProfileMismatched = 0u;
++        m_passProfileTailMs = 0.0;
++        m_passProfileFrameMs = 0.0;
++        m_passProfileStats.clear();
++        m_passProfileCurrent = PassProfileFrame();
++        m_passProfileCurrent.start = profileTimestamp();
++        return;
++      }
++    }
++
++    if (m_passProfileRemaining) {
++      m_passProfileCurrent.end = profileTimestamp();
++      Rc<DxvkQuery> next = m_passProfileCurrent.end;
++      m_passProfilePending.push_back(std::move(m_passProfileCurrent));
++      m_passProfileCurrent = PassProfileFrame();
++
++      if (--m_passProfileRemaining)
++        m_passProfileCurrent.start = next;
++    }
++
++    size_t resolved = 0u;
++
++    while (resolved < m_passProfilePending.size() && profileResolveFrame(m_passProfilePending[resolved]))
++      resolved += 1u;
++
++    m_passProfilePending.erase(m_passProfilePending.begin(), m_passProfilePending.begin() + resolved);
++
++    if (m_passProfileWanted && !m_passProfileRemaining && m_passProfilePending.empty()) {
++      profileReport();
++      m_passProfileWanted = 0u;
++    }
++  }
++#endif
++
++
+   void DxvkContext::signal(const Rc<sync::Signal>& signal, uint64_t value) {
+     m_cmd->queueSignal(signal, value);
+   }
+@@ -5749,6 +6102,11 @@ namespace dxvk {
+       if (unlikely(m_features.test(DxvkContextFeature::DebugUtils)))
+         beginRenderPassDebugRegion();
+ 
++#ifdef __ANDROID__
++      if (unlikely(m_passProfileRemaining))
++        this->profilePassBegin();
++#endif
++
+       this->renderPassBindFramebuffer(
+         m_state.om.framebufferInfo,
+         m_state.om.renderPassOps);
+@@ -6160,6 +6518,11 @@ namespace dxvk {
+     // End actual rendering command
+     m_cmd->cmdEndRendering();
+ 
++#ifdef __ANDROID__
++    if (unlikely(m_passProfileRemaining))
++      this->profilePassEnd();
++#endif
++
+     // If there are pending layout transitions, execute them immediately
+     // since the backend expects images to be in the store layout after
+     // a render pass instance. This is expected to be rare.
+@@ -7719,6 +8082,11 @@ namespace dxvk {
+     if (m_flags.test(DxvkContextFlag::DirtyDrawBuffer) && Indirect)
+       this->trackDrawBuffer();
+ 
++#ifdef __ANDROID__
++    if (unlikely(m_passProfileRemaining && m_passProfileShaderStats))
++      profileShaderDraw();
++#endif
++
+     return true;
+   }
+   
+diff --git a/src/dxvk/dxvk_context.h b/src/dxvk/dxvk_context.h
+index 126df8b..af7fcac 100644
+--- a/src/dxvk/dxvk_context.h
++++ b/src/dxvk/dxvk_context.h
+@@ -9,6 +9,9 @@
+ #include "dxvk_objects.h"
+ #include "dxvk_queue.h"
+ #include "dxvk_util.h"
++#ifdef __ANDROID__
++#include <map>
++#endif
+ 
+ namespace dxvk {
+ 
+@@ -128,6 +131,19 @@ namespace dxvk {
+      */
+     DxvkContextObjects beginExternalRendering();
+ 
++#ifdef __ANDROID__
++    /**
++     * \brief Render pass timing probe frame boundary
++     *
++     * Call once per presented frame. Setting the Android property
++     * debug.csgo.dxvk_passes to "<frames>[:tag]" records GPU timestamps
++     * around every render pass of the next frames and reports per-pass
++     * averages to logcat. Timestamps are only placed where render passes
++     * already begin and end, so the pass structure is left unchanged.
++     */
++    void profileRenderPassFrame();
++#endif
++
+     /**
+      * \brief Begins generating query data
+      * \param [in] query The query to end
+@@ -1389,6 +1405,61 @@ namespace dxvk {
+ 
+     DxvkGpuQueryManager     m_queryManager;
+ 
++#ifdef __ANDROID__
++    struct ShaderProfileMark {
++      Rc<DxvkShader> shader;
++      Rc<DxvkQuery>  stats;
++      uint64_t       draws = 0u;
++      bool           ended = false;
++    };
++
++    struct PassProfileMark {
++      Rc<DxvkQuery> begin, end, stats;
++      uint64_t      draws = 0u;
++      std::string   label;
++      std::string   endedBy;
++      std::vector<ShaderProfileMark> shaders;
++    };
++
++    struct PassProfileFrame {
++      Rc<DxvkQuery>                start, end;
++      std::vector<PassProfileMark> passes;
++    };
++
++    struct PassProfileStat {
++      double      gapMs = 0.0, passMs = 0.0, draws = 0.0;
++      double      vsInvocations = 0.0, iaPrimitives = 0.0, clipInvocations = 0.0, primitives = 0.0, fsInvocations = 0.0;
++      std::string label;
++      std::string endedBy;
++      struct ShaderStat {
++        double draws = 0.0, vs = 0.0, ia = 0.0, fs = 0.0;
++      };
++      std::map<std::string, ShaderStat> shaders;
++    };
++
++    std::string                   m_passProfileProperty;
++    std::string                   m_passProfileTag;
++    uint32_t                      m_passProfileWanted = 0u;
++    uint32_t                      m_passProfileRemaining = 0u;
++    uint32_t                      m_passProfileFrames = 0u;
++    uint32_t                      m_passProfileMismatched = 0u;
++    uint64_t                      m_passProfileDrawBase = 0u;
++    bool                          m_passProfileShaderStats = false;
++    double                        m_passProfileTailMs = 0.0;
++    double                        m_passProfileFrameMs = 0.0;
++    PassProfileFrame              m_passProfileCurrent;
++    std::vector<PassProfileFrame> m_passProfilePending;
++    std::vector<PassProfileStat>  m_passProfileStats;
++
++    Rc<DxvkQuery> profileTimestamp();
++    void profilePassBegin();
++    void profilePassEnd();
++    void profileShaderDraw();
++    void profileShaderEnd();
++    bool profileResolveFrame(const PassProfileFrame& frame);
++    void profileReport();
++#endif
++
+     DxvkGlobalPipelineBarrier m_renderPassBarrierSrc = { };
+     DxvkGlobalPipelineBarrier m_renderPassBarrierDst = { };
+ 
+diff --git a/src/dxvk/dxvk_format.cpp b/src/dxvk/dxvk_format.cpp
+index a355e8c..70dad54 100644
+--- a/src/dxvk/dxvk_format.cpp
++++ b/src/dxvk/dxvk_format.cpp
+@@ -587,10 +587,178 @@ namespace dxvk {
+ 
+     // VK_FORMAT_A8_UNORM_KHR
+     { 1, A, VK_IMAGE_ASPECT_COLOR_BIT },
++
++    // VK_FORMAT_ASTC_4x4_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 4, 4, 1 } },
++
++    // VK_FORMAT_ASTC_4x4_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 4, 4, 1 } },
++
++    // VK_FORMAT_ASTC_5x4_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 5, 4, 1 } },
++
++    // VK_FORMAT_ASTC_5x4_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 5, 4, 1 } },
++
++    // VK_FORMAT_ASTC_5x5_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 5, 5, 1 } },
++
++    // VK_FORMAT_ASTC_5x5_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 5, 5, 1 } },
++
++    // VK_FORMAT_ASTC_6x5_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 6, 5, 1 } },
++
++    // VK_FORMAT_ASTC_6x5_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 6, 5, 1 } },
++
++    // VK_FORMAT_ASTC_6x6_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 6, 6, 1 } },
++
++    // VK_FORMAT_ASTC_6x6_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 6, 6, 1 } },
++
++    // VK_FORMAT_ASTC_8x5_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 8, 5, 1 } },
++
++    // VK_FORMAT_ASTC_8x5_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 8, 5, 1 } },
++
++    // VK_FORMAT_ASTC_8x6_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 8, 6, 1 } },
++
++    // VK_FORMAT_ASTC_8x6_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 8, 6, 1 } },
++
++    // VK_FORMAT_ASTC_8x8_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 8, 8, 1 } },
++
++    // VK_FORMAT_ASTC_8x8_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 8, 8, 1 } },
++
++    // VK_FORMAT_ASTC_10x5_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 10, 5, 1 } },
++
++    // VK_FORMAT_ASTC_10x5_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 10, 5, 1 } },
++
++    // VK_FORMAT_ASTC_10x6_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 10, 6, 1 } },
++
++    // VK_FORMAT_ASTC_10x6_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 10, 6, 1 } },
++
++    // VK_FORMAT_ASTC_10x8_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 10, 8, 1 } },
++
++    // VK_FORMAT_ASTC_10x8_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 10, 8, 1 } },
++
++    // VK_FORMAT_ASTC_10x10_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 10, 10, 1 } },
++
++    // VK_FORMAT_ASTC_10x10_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 10, 10, 1 } },
++
++    // VK_FORMAT_ASTC_12x10_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 12, 10, 1 } },
++
++    // VK_FORMAT_ASTC_12x10_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 12, 10, 1 } },
++
++    // VK_FORMAT_ASTC_12x12_UNORM_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlag::BlockCompressed,
++      VkExtent3D { 12, 12, 1 } },
++
++    // VK_FORMAT_ASTC_12x12_SRGB_BLOCK
++    { 16, RGBA, VK_IMAGE_ASPECT_COLOR_BIT,
++      DxvkFormatFlags(
++        DxvkFormatFlag::BlockCompressed,
++        DxvkFormatFlag::ColorSpaceSrgb),
++      VkExtent3D { 12, 12, 1 } },
+   }};
+   
+   
+-  const std::array<std::pair<VkFormat, VkFormat>, 7> g_formatGroups = {{
++  const std::array<std::pair<VkFormat, VkFormat>, 8> g_formatGroups = {{
+     { VK_FORMAT_UNDEFINED,                  VK_FORMAT_BC7_SRGB_BLOCK                                            },
+     { VK_FORMAT_G8B8G8R8_422_UNORM_KHR,     VK_FORMAT_B8G8R8G8_422_UNORM_KHR                                    },
+     { VK_FORMAT_A4R4G4B4_UNORM_PACK16,      VK_FORMAT_A4B4G4R4_UNORM_PACK16                                     },
+@@ -598,6 +766,7 @@ namespace dxvk {
+     { VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16, VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16  },
+     { VK_FORMAT_G16_B16R16_2PLANE_420_UNORM, VK_FORMAT_G16_B16R16_2PLANE_420_UNORM                              },
+     { VK_FORMAT_A1B5G5R5_UNORM_PACK16_KHR,  VK_FORMAT_A8_UNORM_KHR                                              },
++    { VK_FORMAT_ASTC_4x4_UNORM_BLOCK,       VK_FORMAT_ASTC_12x12_SRGB_BLOCK                                     },
+   }};
+   
+   
+diff --git a/src/dxvk/dxvk_format.h b/src/dxvk/dxvk_format.h
+index caecf6f..8f5192d 100644
+--- a/src/dxvk/dxvk_format.h
++++ b/src/dxvk/dxvk_format.h
+@@ -87,7 +87,7 @@ namespace dxvk {
+   };
+ 
+   /// Number of formats defined in lookup table  
+-  constexpr size_t DxvkFormatCount = 157;
++  constexpr size_t DxvkFormatCount = 185;
+ 
+   /// Format lookup table
+   extern const std::array<DxvkFormatInfo, DxvkFormatCount> g_formatInfos;
+diff --git a/src/dxvk/dxvk_presenter.cpp b/src/dxvk/dxvk_presenter.cpp
+index 398bd33..293273c 100644
+--- a/src/dxvk/dxvk_presenter.cpp
++++ b/src/dxvk/dxvk_presenter.cpp
+@@ -8,6 +8,17 @@
+ 
+ namespace dxvk {
+ 
++  static bool usablePresentation(VkResult result) {
++    // Android's compositor may keep reporting SUBOPTIMAL for a rotated
++    // Surface. It still acquired/presented a valid image. Rebuild only for
++    // actual errors or an explicit resize, rather than once per frame.
++    return result == VK_SUCCESS
++#if defined(__ANDROID__)
++        || result == VK_SUBOPTIMAL_KHR
++#endif
++        ;
++  }
++
+   const std::array<std::pair<VkColorSpaceKHR, VkColorSpaceKHR>, 2> Presenter::s_colorSpaceFallbacks = {{
+     { VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT, VK_COLOR_SPACE_HDR10_ST2084_EXT },
+ 
+@@ -102,13 +113,13 @@ namespace dxvk {
+ 
+     // This is a normal occurence, but may be useful for
+     // debugging purposes in case WSI goes wrong somehow.
+-    if (m_acquireStatus != VK_SUCCESS && m_swapchain)
++    if (!usablePresentation(m_acquireStatus) && m_swapchain)
+       Logger::info(str::format("Presenter: Got ", m_acquireStatus, ", recreating swapchain"));
+ 
+     // If the swap chain is out of date, recreate it and retry. It
+     // is possible that we do not get a new swap chain here, e.g.
+     // because the window is minimized.
+-    if (m_acquireStatus != VK_SUCCESS || !m_swapchain) {
++    if (!usablePresentation(m_acquireStatus) || !m_swapchain) {
+       VkResult vr = recreateSwapChain();
+ 
+       if (vr == VK_NOT_READY && hasSwapchain)
+@@ -237,9 +248,17 @@ namespace dxvk {
+       m_frameCond.notify_one();
+     }
+ 
++#if defined(__ANDROID__)
++    // SUBOPTIMAL is accepted for rotated Surfaces, but it is also all Android
++    // reports when the Surface returns to its real size after a transient one
++    // (resuming from a portrait launcher). Rebuild when the extent changed.
++    if (status == VK_SUBOPTIMAL_KHR && surfaceExtentChanged())
++      status = VK_ERROR_OUT_OF_DATE_KHR;
++#endif
++
+     // On a successful present, try to acquire next image already, in
+     // order to hide potential delays from the application thread.
+-    if (status == VK_SUCCESS) {
++    if (usablePresentation(status)) {
+       PresenterSync& nextSync = m_semaphores.at(m_frameIndex);
+       waitForSwapchainFence(nextSync);
+ 
+@@ -248,11 +267,10 @@ namespace dxvk {
+         nextSync.acquire, VK_NULL_HANDLE, &m_imageIndex);
+     }
+ 
+-    // Recreate the swapchain on the next acquire, even if we get suboptimal.
+-    // There is no guarantee that suboptimal state is returned by both functions.
++    // OUT_OF_DATE and SURFACE_LOST still require recreation on the next acquire.
+     std::lock_guard lock(m_surfaceMutex);
+ 
+-    if (status != VK_SUCCESS) {
++    if (!usablePresentation(status)) {
+       Logger::info(str::format("Presenter: Got ", status, ", recreating swapchain"));
+ 
+       m_dirtySwapchain = true;
+@@ -1132,6 +1150,21 @@ namespace dxvk {
+   }
+ 
+ 
++#if defined(__ANDROID__)
++  bool Presenter::surfaceExtentChanged() {
++    VkSurfaceCapabilitiesKHR caps = { };
++
++    if (m_images.empty() || m_vki->vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
++        m_device->adapter()->handle(), m_surface, &caps))
++      return true;
++
++    VkExtent2D extent = pickImageExtent(caps, m_preferredExtent);
++    VkExtent3D current = m_images.front()->info().extent;
++    return extent.width != current.width || extent.height != current.height;
++  }
++#endif
++
++
+   VkExtent2D Presenter::pickImageExtent(
+     const VkSurfaceCapabilitiesKHR& caps,
+           VkExtent2D                desired) {
+diff --git a/src/dxvk/dxvk_presenter.h b/src/dxvk/dxvk_presenter.h
+index 3b6784c..28a404d 100644
+--- a/src/dxvk/dxvk_presenter.h
++++ b/src/dxvk/dxvk_presenter.h
+@@ -365,6 +365,10 @@ namespace dxvk {
+       const VkPresentModeKHR*         pSupported,
+             uint32_t                  syncInterval);
+ 
++#if defined(__ANDROID__)
++    bool surfaceExtentChanged();
++#endif
++
+     VkExtent2D pickImageExtent(
+       const VkSurfaceCapabilitiesKHR& caps,
+             VkExtent2D                desired);
+diff --git a/src/util/util_env.cpp b/src/util/util_env.cpp
+index 556327c..3785819 100644
+--- a/src/util/util_env.cpp
++++ b/src/util/util_env.cpp
+@@ -99,8 +99,9 @@ namespace dxvk::env {
+ #elif defined(__linux__)
+     std::array<char, PATH_MAX> exePath = {};
+ 
+-    size_t count = readlink("/proc/self/exe", exePath.data(), exePath.size());
+-
++    ssize_t count = readlink("/proc/self/exe", exePath.data(), exePath.size());
++    if (count <= 0)
++      return {};
+     return std::string(exePath.begin(), exePath.begin() + count);
+ #elif defined(__FreeBSD__)
+     int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, getpid()};
+@@ -156,7 +157,11 @@ namespace dxvk::env {
+ 
+     return true;
+ #else
+-    return std::filesystem::is_directory(path) || std::filesystem::create_directories(path);
++    if (path.empty())
++      return false;
++    std::error_code error;
++    return std::filesystem::is_directory(path, error)
++        || std::filesystem::create_directories(path, error);
+ #endif
+   }
+   
+diff --git a/src/wsi/sdl3/wsi_platform_sdl3.cpp b/src/wsi/sdl3/wsi_platform_sdl3.cpp
+index 9975cda..2489710 100644
+--- a/src/wsi/sdl3/wsi_platform_sdl3.cpp
++++ b/src/wsi/sdl3/wsi_platform_sdl3.cpp
+@@ -15,6 +15,8 @@ namespace dxvk::wsi {
+         "SDL3.dll"
+ #elif defined(__APPLE__)
+         "libSDL3.0.dylib"
++#elif defined(__ANDROID__)
++        "libSDL3.so"
+ #else
+         "libSDL3.so.0"
+ #endif
+@@ -31,13 +33,18 @@ namespace dxvk::wsi {
+       }
+     #include "wsi_platform_sdl3_funcs.h"
+ 
++#if !defined(__ANDROID__)
+     if (!SDL_InitSubSystem(SDL_INIT_VIDEO))
+-      throw DxvkError("SDL3 WSI: Failed to initialize video subsystem."); \
++      throw DxvkError("SDL3 WSI: Failed to initialize video subsystem.");
++#endif
+   }
+ 
+   Sdl3WsiDriver::~Sdl3WsiDriver() {
++    // The Android activity owns SDL video and its JNI callbacks.
++#if !defined(__ANDROID__)
+     SDL_QuitSubSystem(SDL_INIT_VIDEO);
+     FreeLibrary(libsdl);
++#endif
+   }
+ 
+   std::vector<const char *> Sdl3WsiDriver::getInstanceExtensions() {
+diff --git a/src/wsi/sdl3/wsi_platform_sdl3_funcs.h b/src/wsi/sdl3/wsi_platform_sdl3_funcs.h
+index 7115423..a1e74c2 100644
+--- a/src/wsi/sdl3/wsi_platform_sdl3_funcs.h
++++ b/src/wsi/sdl3/wsi_platform_sdl3_funcs.h
+@@ -8,6 +8,8 @@ SDL_PROC(SDL_DisplayMode**, SDL_GetFullscreenDisplayModes, (SDL_DisplayID, int*)
+ SDL_PROC(bool, SDL_GetClosestFullscreenDisplayMode, (SDL_DisplayID, int, int, float, bool, SDL_DisplayMode*))
+ SDL_PROC(SDL_DisplayID, SDL_GetDisplayForWindow, (SDL_Window*))
+ SDL_PROC(SDL_WindowFlags, SDL_GetWindowFlags, (SDL_Window *))
++SDL_PROC(SDL_PropertiesID, SDL_GetWindowProperties, (SDL_Window*))
++SDL_PROC(void*, SDL_GetPointerProperty, (SDL_PropertiesID, const char*, void*))
+ SDL_PROC(bool, SDL_GetWindowSizeInPixels, (SDL_Window*, int*, int*))
+ SDL_PROC(bool, SDL_SetWindowSize, (SDL_Window*, int, int))
+ SDL_PROC(bool, SDL_SetWindowPosition, (SDL_Window*, int, int))
+diff --git a/src/wsi/sdl3/wsi_window_sdl3.cpp b/src/wsi/sdl3/wsi_window_sdl3.cpp
+index f7dd35a..d918746 100644
+--- a/src/wsi/sdl3/wsi_window_sdl3.cpp
++++ b/src/wsi/sdl3/wsi_window_sdl3.cpp
+@@ -156,6 +156,11 @@ namespace dxvk::wsi {
+ 
+   bool Sdl3WsiDriver::isMinimized(HWND hWindow) {
+     SDL_Window* window = fromHwnd(hWindow);
++#if defined(__ANDROID__)
++    if (!SDL_GetPointerProperty(SDL_GetWindowProperties(window),
++        SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr))
++      return true;
++#endif
+     return (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) != 0;
+   }
+ 
+@@ -180,6 +185,11 @@ namespace dxvk::wsi {
+           VkSurfaceKHR*             pSurface) {
+     SDL_Window* window = fromHwnd(hWindow);
+ 
++#if defined(__ANDROID__)
++    if (!SDL_GetPointerProperty(SDL_GetWindowProperties(window),
++        SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr))
++      return VK_ERROR_SURFACE_LOST_KHR;
++#endif
+     return SDL_Vulkan_CreateSurface(window, instance, nullptr, pSurface)
+       ? VK_SUCCESS : VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+diff --git a/src/wsi/wsi_platform.cpp b/src/wsi/wsi_platform.cpp
+index 08f456e..2e74aa9 100644
+--- a/src/wsi/wsi_platform.cpp
++++ b/src/wsi/wsi_platform.cpp
+@@ -24,8 +24,10 @@ namespace dxvk::wsi {
+   };
+ 
+   void init() {
+-    if (s_refcount++ > 0)
++    if (s_refcount > 0) {
++      s_refcount++;
+       return;
++    }
+ 
+     std::string hint = dxvk::env::getEnvVar("DXVK_WSI_DRIVER");
+     if (hint == "") {
+@@ -48,6 +50,8 @@ namespace dxvk::wsi {
+ 
+     if (!success)
+       throw DxvkError("Failed to initialize WSI.");
++
++    s_refcount = 1;
+   }
+ 
+   void quit() {

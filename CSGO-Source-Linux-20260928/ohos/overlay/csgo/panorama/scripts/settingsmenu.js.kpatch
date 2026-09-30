@@ -1,0 +1,26 @@
+target: csgo/panorama/scripts/settingsmenu.js
+@@ after: let tabInfo = {
+		CsnoTouchSettings: {
+			xml: "settings_csno_touch",
+			radioid: "CsnoTouchRadio"
+		},
+		CsnoCrosshair: {
+			xml: "settings_csno_crosshair",
+			radioid: "CsnoCrosshairRadio"
+		},
+		CsnoLoadout: {
+			xml: "settings_csno_loadout",
+			radioid: "CsnoLoadoutRadio"
+		},
+		CsnoQuality: {
+			xml: "settings_csno_quality",
+			radioid: "CsnoQualityRadio"
+		},
+		CsnoFeedback: {
+			xml: "settings_csno_feedback",
+			radioid: "CsnoFeedbackRadio"
+		},
+		CsnoSelfTest: {
+			xml: "settings_csno_selftest",
+			radioid: "CsnoSelfTestRadio"
+		},

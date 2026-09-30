@@ -1,0 +1,228 @@
+/* CS:NO (09-28, 0.1.5): 触控键位 settings tab + full-screen layout editor. */
+
+.csno-row
+{
+	width: 100%;
+	flow-children: right;
+	margin: 6px 0px;
+	vertical-align: center;
+}
+
+.csno-row-label
+{
+	width: 45%;
+	vertical-align: center;
+	font-size: 22px;
+	color: #d0d0d0;
+}
+
+.csno-row-hint
+{
+	width: 100%;
+	margin: 2px 0px 10px 0px;
+	font-size: 17px;
+	color: #b4bac2;
+}
+
+.csno-btn-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 20px;
+	color: #ffffff;
+}
+
+.csno-action
+{
+	min-width: 220px;
+	height: 44px;
+	margin-right: 12px;
+	padding: 0px 16px;
+	background-color: #2f3a45;
+	border: 1px solid #5a6a7a;
+	transition-property: background-color;
+	transition-duration: 0.1s;
+}
+
+.csno-action:hover
+{
+	background-color: #41546a;
+}
+
+.csno-action--primary
+{
+	background-color: #a8641a;
+	border: 1px solid #e0a050;
+}
+
+.csno-action--primary:hover
+{
+	background-color: #c47a26;
+}
+
+.csno-slider
+{
+	width: 32%;
+	vertical-align: center;
+}
+
+.csno-value
+{
+	width: 90px;
+	margin-left: 16px;
+	vertical-align: center;
+	font-size: 20px;
+	color: #d0d0d0;
+}
+
+/* ---------------------------------------------------------------- editor */
+
+.csno-editor
+{
+	width: 100%;
+	height: 100%;
+	background-color: #0b0f14f7;
+}
+
+.csno-grid
+{
+	width: 100%;
+	height: 100%;
+	flow-children: down;
+}
+
+.csno-grid-row
+{
+	width: 100%;
+	height: fill-parent-flow( 1 );
+	flow-children: right;
+}
+
+.csno-grid-cell
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	border-right: 1px solid #ffffff08;
+	border-bottom: 1px solid #ffffff08;
+}
+
+.csno-grid-cell:hover
+{
+	background-color: #ffffff10;
+}
+
+.csno-layer
+{
+	width: 100%;
+	height: 100%;
+}
+
+.csno-circle
+{
+	border-radius: 50%;
+	background-color: #ffffff30;
+	border: 2px solid #ffffff66;
+}
+
+.csno-circle--fire
+{
+	background-color: #ff554450;
+}
+
+.csno-circle--stick
+{
+	background-color: #ffffff22;
+	border: 2px dashed #ffffff55;
+}
+
+.csno-circle--hidden
+{
+	opacity: 0.25;
+	border: 2px dashed #ff8080;
+}
+
+.csno-circle--selected
+{
+	border: 4px solid #f0a030;
+	background-color: #f0a03040;
+}
+
+.csno-side
+{
+	width: 560px;
+	vertical-align: center;
+	horizontal-align: center;
+	padding: 16px 20px;
+	flow-children: down;
+	background-color: #151c24f2;
+	border: 1px solid #45566a;
+}
+
+.csno-side--left
+{
+	horizontal-align: left;
+	margin-left: 24px;
+}
+
+.csno-side--right
+{
+	horizontal-align: right;
+	margin-right: 24px;
+}
+
+.csno-side-title
+{
+	font-size: 24px;
+	color: #f0c070;
+	margin-bottom: 8px;
+}
+
+.csno-side-row
+{
+	width: 100%;
+	flow-children: right;
+	margin: 5px 0px;
+}
+
+.csno-side-label
+{
+	width: 120px;
+	vertical-align: center;
+	font-size: 19px;
+	color: #c8c8c8;
+}
+
+.csno-side .csno-slider
+{
+	width: 280px;
+}
+
+.csno-side .csno-value
+{
+	width: 70px;
+}
+
+.csno-small
+{
+	min-width: 64px;
+	height: 44px;
+	margin-right: 8px;
+	background-color: #2f3a45;
+	border: 1px solid #5a6a7a;
+}
+
+.csno-small:hover
+{
+	background-color: #41546a;
+}
+
+.csno-name
+{
+	width: 300px;
+	height: 40px;
+	font-size: 20px;
+	background-color: #0d1218;
+	border: 1px solid #5a6a7a;
+	color: #ffffff;
+	padding: 4px 8px;
+}

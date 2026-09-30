@@ -1,0 +1,100 @@
+# CSGO Source Linux — source tree with local prebuilts
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
+*.code-workspace
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# VPC-generated makefiles and Visual Studio projects
+*.mak
+!src/devtools/makefile_base_posix.mak
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.vcproj
+*.ncb
+*.suo
+*.user
+*.sdf
+*.opensdf
+*.aps
+*.VC.db
+*.VC.opendb
+ipch/
+.vs/
+
+# Compile / link artifacts
+*.o
+*.os
+*.lo
+*.obj
+*.P
+*.d
+*.dep
+*.pch
+*.pdb
+*.ilk
+*.exp
+*.map
+*.res
+*.idb
+*.sbr
+*.bsc
+*.dwo
+*.gcda
+*.gcno
+
+# Prebuilt and produced binaries (kept on disk, not versioned)
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.elf
+*.self
+*.xex
+*.prx
+*.sprx
+
+# Game runtime output (sibling of src/, not part of this tree)
+/game/
+/runtime/
+/csgo/
+
+# VPC / make output directories
+**/obj/
+**/obj_*/
+**/_vpc_/
+**/.vpcstate
+*.vpc_cache
+*.vpc_crc
+*.mak.vpc_crc
+/src/devtools/bin/vpc_linux
+/src/**/generated_proto*/
+/src/vscript/languages/squirrel/vsquirrel/init_nut.h
+
+# Logs / cache
+*.log
+.ccache/
+ccache/
+
+# Archives
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+*.tgz

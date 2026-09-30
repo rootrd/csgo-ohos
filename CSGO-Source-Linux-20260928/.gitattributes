@@ -1,0 +1,9 @@
+* text=auto
+*.sh text eol=lf
+*.vpc text eol=lf
+*.vgc text eol=lf
+*.mak text eol=lf
+*.cpp text
+*.h text
+*.c text
+*.pl text

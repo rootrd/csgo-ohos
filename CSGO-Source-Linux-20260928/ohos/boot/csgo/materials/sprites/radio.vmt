@@ -1,0 +1,6 @@
+// CS:NO boot package: placeholder so the radio status system initialises (nothing is drawn on the download page)
+"UnlitGeneric"
+{
+	"$basetexture"	"console/logo"
+	"$translucent"	"1"
+}

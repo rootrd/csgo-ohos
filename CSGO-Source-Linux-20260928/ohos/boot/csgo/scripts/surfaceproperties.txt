@@ -1,0 +1,17 @@
+// CS:NO boot package: one default surface, nothing is simulated on the download page.
+"default"
+{
+	"density"	"2000"
+	"elasticity"	"0.25"
+	"friction"	"0.8"
+	"dampening"	"0.0"
+	"audioreflectivity"	"0.66"
+	"audiohardnessfactor"	"1.0"
+	"audioroughnessfactor"	"1.0"
+	"scrapeRoughThreshold"	"0.5"
+	"impactHardThreshold"	"0.5"
+	"gamematerial"	"C"
+	"jumpfactor"	"1.0"
+	"maxspeedfactor"	"1.0"
+	"climbable"	"0"
+}

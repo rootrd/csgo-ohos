@@ -1,0 +1,13 @@
+// CS:NO boot package: no game modes before the game files are downloaded
+"GameModes.txt"
+{
+	"gameTypes"
+	{
+	}
+	"mapgroups"
+	{
+	}
+	"maps"
+	{
+	}
+}

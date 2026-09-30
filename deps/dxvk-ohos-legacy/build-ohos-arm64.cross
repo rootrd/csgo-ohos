@@ -1,0 +1,21 @@
+[binaries]
+c = '/apps/harmony/sdk/default/openharmony/native/llvm/bin/clang'
+cpp = '/apps/harmony/sdk/default/openharmony/native/llvm/bin/clang++'
+ar = '/apps/harmony/sdk/default/openharmony/native/llvm/bin/llvm-ar'
+strip = '/apps/harmony/sdk/default/openharmony/native/llvm/bin/llvm-strip'
+pkg-config = '/usr/bin/pkg-config'
+
+[built-in options]
+c_args = ['--target=aarch64-linux-ohos', '--sysroot=/apps/harmony/sdk/default/openharmony/native/sysroot', '-D__OHOS__=1', '-fPIC']
+cpp_args = ['--target=aarch64-linux-ohos', '--sysroot=/apps/harmony/sdk/default/openharmony/native/sysroot', '-D__OHOS__=1', '-fPIC']
+c_link_args = ['--target=aarch64-linux-ohos', '--sysroot=/apps/harmony/sdk/default/openharmony/native/sysroot', '-fuse-ld=lld']
+cpp_link_args = ['--target=aarch64-linux-ohos', '--sysroot=/apps/harmony/sdk/default/openharmony/native/sysroot', '-fuse-ld=lld']
+
+[properties]
+needs_exe_wrapper = true
+
+[host_machine]
+system = 'linux'
+cpu_family = 'aarch64'
+cpu = 'aarch64'
+endian = 'little'

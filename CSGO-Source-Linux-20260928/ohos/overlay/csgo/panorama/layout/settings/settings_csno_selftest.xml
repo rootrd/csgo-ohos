@@ -1,0 +1,51 @@
+<root>
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+		<include src="file://{resources}/styles/settings/settings.css" />
+		<include src="file://{resources}/styles/mainmenu.css"/>
+		<include src="file://{resources}/styles/csno_touch.css"/>
+	</styles>
+
+	<scripts>
+		<include src="file://{resources}/scripts/settingsmenu_shared.js" />
+		<include src="file://{resources}/scripts/csno_bridge.js" />
+		<include src="file://{resources}/scripts/csno_selftest.js" />
+	</scripts>
+
+	<!-- CS:NO (09-28, 0.2.0): 一键测试 -- CsnoSelfTest.java: a fixed run through dust2 (people, guns, buildings, smoke),
+	     screenshots + numbers + the game log, all uploaded (each player his own folder on the server) -->
+	<Panel useglobalcontext="true" class="SettingsMenuTab" onload="CsnoSelfTest.Init();">
+		<Panel class="SettingsMenuTabContent vscroll">
+			<Panel class="SettingsBackground">
+				<Panel class="SettingsSectionTitleContianer">
+					<Label class="SettingsSectionTitleLabel" text="一键测试" />
+				</Panel>
+				<Label class="csno-row-hint" text="游戏会自动进一张地图（炙热沙城 II），摆好几个人物，依次拍建筑、人物模型、第三人称、AK / AWP / 刀和检视动作、烟雾弹，再原地转一圈测性能，最后回到主菜单。全程约 2 分钟，期间不用碰屏幕。" />
+				<Label class="csno-row-hint" text="跑完自动上传：13 张截图、帧率、内存、温度、CPU 频率、显卡驱动、画质设置和这次的游戏日志。我们会拿这些对比正常手机的画面，专门修花屏、人物和枪械变形。不上传 IMEI、手机号、账号、位置、通讯录或你的文件。" />
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="测试状态" />
+					<Label id="CsnoSelfTestState" class="csno-value" style="width: 52%;" text="…" />
+				</Panel>
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="上传到服务器" />
+					<Label id="CsnoSelfTestUpload" class="csno-value" style="width: 52%;" text="…" />
+				</Panel>
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="性能测试平均帧率" />
+					<Label id="CsnoSelfTestFps" class="csno-value" style="width: 52%;" text="…" />
+				</Panel>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="csno-row">
+					<Label class="csno-row-label" text="开始一键测试（约 2 分钟）" />
+					<Button id="CsnoSelfTestStart" class="csno-action csno-action--primary" onactivate="CsnoSelfTest.Start();">
+						<Label class="csno-btn-text" text="开始测试" />
+					</Button>
+				</Panel>
+				<Label id="CsnoSelfTestHint" class="csno-row-hint" text="" />
+			</Panel>
+		</Panel>
+	</Panel>
+</root>

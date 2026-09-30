@@ -1,0 +1,4 @@
+// CS:NO boot package: no ambient sound on the download page
+soundscapes_manifest
+{
+}

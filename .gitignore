@@ -1,0 +1,49 @@
+# ── 构建产物 / 第三方大目录 ──
+CSGO-Source-Linux-20260928/game/
+CSGO-Source-Linux-20260928/runtime/
+CSGO-Source-Linux-20260928/src/lib/
+deps/dxvk-ohos-legacy/build.ohos/
+deps/SDL/build.*/
+deps/*/build.*/
+ohos-sdk/
+hap/entry/build/
+hap/entry/libs/
+hap/.hvigor*
+hap/oh_modules/
+
+# ── 本地下载物 / 安装包 / 日志 ──
+*.hap
+*.tar
+*.tar.zst
+*.zst
+*.zip
+*.apk*
+*.aab
+logs-*.log
+logs-night*.log
+*.log
+apk_analysis_*/
+commandline-tools-*
+*.p12
+*.p7b
+*.csr
+
+# ── 系统与编辑器 ──
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# ── git 大文件兜底 ──
+*.so
+*.a
+*.dylib
+!CSGO-Source-Linux-20260928/src/devtools/bin/**
+
+# ── 上游历史备份（避免被识别为子模块 gitlink；改名回 .git 即恢复上游仓库）──
+.git-upstream-history/
+apk_analysis/
+deps/glslang/lib/
+deps/glslang/bin/
+CSGO-Source-Linux-20260928/发给同事.md

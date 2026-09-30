@@ -1,0 +1,111 @@
+<root>
+    <styles><include src="file://{resources}/styles/csgostyles.css" /><include src="file://{resources}/mobile/menu.css" /></styles>
+    <scripts><include src="file://{resources}/mobile/menu.js" /></scripts>
+    <snippets>
+        <snippet name="TouchButton">
+            <Panel>
+                <Image id="Icon" class="touch-icon" textureheight="128" scaling="stretch-to-fit-preserve-aspect" hittest="false" />
+                <Label id="Caption" class="touch-caption" hittest="false" />
+                <Label id="Count" class="touch-count" hittest="false" />
+                <Panel id="ProgressTrack" class="touch-progress-track" hittest="false"><Panel id="ProgressFill" class="touch-progress-fill" hittest="false" /></Panel>
+            </Panel>
+        </snippet>
+    </snippets>
+    <MobileGameUI class="MobileRoot" oncancel="MobileMenu.Back();" hittest="false">
+        <Panel id="MenuShell" class="menu-shell" hittest="true">
+            <Image class="menu-backdrop" src="file://{images}/map_icons/screenshots/1080p/de_dust2.png" scaling="stretch-to-cover-preserve-aspect" hittest="false" />
+            <Panel class="menu-dimmer" hittest="false" />
+            <Panel class="menu-card">
+                <Panel class="heading-row">
+                    <Panel class="heading-copy"><Image class="logo" src="file://{images}/icons/ui/csgologo.svg" texturewidth="-1" textureheight="48" scaling="stretch-to-fit-preserve-aspect" /><Label id="PageTitle" class="page-title" text="本地对战" /></Panel>
+                    <Panel class="header-nav">
+                        <Button id="NavHome" class="nav-tab" onactivate="MobileMenu.Action('home');"><Label text="主页" /></Button>
+                        <Button id="NavPlay" class="nav-tab" onactivate="MobileMenu.Action('play');"><Label text="开始游戏" /></Button>
+                        <Button id="NavSettings" class="nav-tab" onactivate="MobileMenu.Action('settings');"><Label text="设置" /></Button>
+                        <Button id="NavLayout" class="nav-tab" onactivate="MobileMenu.Action('layout');"><Label text="触屏布局" /></Button>
+                    </Panel>
+                    <Button class="back-button" onactivate="MobileMenu.Back();"><Label text="返回" /></Button>
+                </Panel>
+                <Panel class="page-body">
+                    <Panel id="HomePage" class="page home-page">
+                        <Panel class="home-copy">
+                            <Label class="eyebrow" text="COUNTER-STRIKE · GLOBAL OFFENSIVE" />
+                            <Label id="HomeHeadline" class="hero" text="与电脑玩家练习" />
+                            <Label class="description" text="熟悉地图、练习枪法，按自己的节奏开始对战。" />
+                            <Panel class="home-session"><Label class="section-label" text="对战预设" /><Label id="HomeMapName" class="home-map-name" text="de_dust2" /><Label id="HomeMatchSummary" class="small" /></Panel>
+                        </Panel>
+                        <Panel class="home-actions touch-scroll">
+                            <Label class="section-label" text="游戏" />
+                            <Button id="ResumeButton" class="primary big-button" onactivate="MobileMenu.Action('resume');"><Image class="btn-icon" src="file://{images}/icons/ui/play_circle.svg" textureheight="28" /><Label text="继续游戏" /></Button>
+                            <Button id="PlayButton" class="primary big-button" onactivate="MobileMenu.Action('play');"><Image class="btn-icon" src="file://{images}/icons/ui/play_circle.svg" textureheight="28" /><Label text="开始游戏" /></Button>
+                            <Button class="big-button" onactivate="MobileMenu.Action('settings');"><Image class="btn-icon" src="file://{images}/icons/ui/settings.svg" textureheight="28" /><Label text="设置" /></Button>
+                            <Button class="big-button" onactivate="MobileMenu.Action('layout');"><Image class="btn-icon" src="file://{resources}/mobile/icons/move.svg" textureheight="28" /><Label text="调整按键布局" /></Button>
+                            <Panel id="TeamButtons" class="team-buttons"><Button class="compact team-t" onactivate="MobileMenu.Action('team_t');"><Label text="加入 T" /></Button><Button class="compact team-ct" onactivate="MobileMenu.Action('team_ct');"><Label text="加入 CT" /></Button></Panel>
+                            <Button id="DisconnectButton" class="quiet" onactivate="MobileMenu.Action('disconnect');"><Label text="返回主菜单" /></Button>
+                            <Button class="quiet" onactivate="MobileMenu.Action('quit');"><Image class="btn-icon" src="file://{images}/icons/ui/power.svg" textureheight="22" /><Label text="退出游戏" /></Button>
+                        </Panel>
+                    </Panel>
+                    <Panel id="PlayPage" class="page play-page">
+                        <Panel class="map-column"><Label class="section-label" text="选择地图" /><Panel id="MapList" class="map-list touch-scroll" /></Panel>
+                        <Panel class="match-column touch-scroll">
+                            <Label id="ChosenMap" class="chosen-map" text="de_dust2" />
+                            <Label class="section-label" text="游戏模式" /><Panel id="ModeChoices" class="choices" />
+                            <Label class="section-label" text="机器人数量" /><Panel id="BotChoices" class="choices" />
+                            <Label class="section-label" text="机器人难度" /><Panel id="DifficultyChoices" class="choices" />
+                            <Label class="section-label" text="我的队伍" /><Panel id="TeamChoices" class="choices" />
+                            <Button id="StartMatch" class="primary big-button start-button" onactivate="MobileMenu.Start();"><Label text="进入游戏" /></Button>
+                        </Panel>
+                    </Panel>
+                    <Panel id="SettingsPage" class="page settings-page">
+                        <Panel id="SettingsList" class="settings-list touch-scroll">
+                            <Panel class="language-row">
+                                <Label class="setting-name" text="游戏语言" />
+                                <Panel id="LanguageChoices" class="language-choices" />
+                                <Label class="small language-note" text="语言选择会立即保存，重新启动游戏后生效。" />
+                            </Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel0" class="setting-name" /><Slider id="Setting0" direction="horizontal" /><Label id="SettingValue0" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel1" class="setting-name" /><Slider id="Setting1" direction="horizontal" /><Label id="SettingValue1" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel2" class="setting-name" /><Slider id="Setting2" direction="horizontal" /><Label id="SettingValue2" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel3" class="setting-name" /><Slider id="Setting3" direction="horizontal" /><Label id="SettingValue3" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel4" class="setting-name" /><Slider id="Setting4" direction="horizontal" /><Label id="SettingValue4" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel5" class="setting-name" /><Slider id="Setting5" direction="horizontal" /><Label id="SettingValue5" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel6" class="setting-name" /><Slider id="Setting6" direction="horizontal" /><Label id="SettingValue6" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel14" class="setting-name" /><Slider id="Setting14" direction="horizontal" /><Label id="SettingValue14" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel7" class="setting-name" /><Slider id="Setting7" direction="horizontal" /><Label id="SettingValue7" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel8" class="setting-name" /><Slider id="Setting8" direction="horizontal" /><Label id="SettingValue8" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel9" class="setting-name" /><Slider id="Setting9" direction="horizontal" /><Label id="SettingValue9" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel10" class="setting-name" /><Slider id="Setting10" direction="horizontal" /><Label id="SettingValue10" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel11" class="setting-name" /><Slider id="Setting11" direction="horizontal" /><Label id="SettingValue11" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel12" class="setting-name" /><Slider id="Setting12" direction="horizontal" /><Label id="SettingValue12" class="setting-value" /></Panel>
+                            <Panel class="setting-row"><Label id="SettingLabel13" class="setting-name" /><Slider id="Setting13" direction="horizontal" /><Label id="SettingValue13" class="setting-value" /></Panel>
+                        </Panel>
+                        <Panel class="footer-row"><Button class="compact" onactivate="MobileMenu.Action('default_settings');"><Label text="恢复默认" /></Button><Label class="small footer-note" text="应用后保存，返回则放弃未应用的修改。" /><Button class="primary compact" onactivate="MobileMenu.Apply();"><Label text="应用并保存" /></Button></Panel>
+                    </Panel>
+                    <Panel id="ConfirmPage" class="page confirm-page">
+                        <Label id="ConfirmTitle" class="hero" text="退出游戏？" /><Label id="ConfirmText" class="description" text="已保存的设置和按键布局会保留。" />
+                        <Panel class="confirm-buttons"><Button class="compact" onactivate="MobileMenu.Back();"><Label text="取消" /></Button><Button class="primary compact" onactivate="MobileMenu.Confirm();"><Label text="确认" /></Button></Panel>
+                    </Panel>
+                </Panel>
+                <Label id="Status" class="status" text="" />
+            </Panel>
+        </Panel>
+        <Panel id="Editor" class="editor" hittest="false">
+            <Panel class="editor-preview" hittest="false"><Label class="preview-hint" text="拖动图标调整位置 · 游戏中仅显示持有装备与可用交互" /></Panel>
+            <Panel id="EditorToolbar" class="editor-toolbar" hittest="true">
+                <Panel class="editor-info"><Label class="section-label" text="按键布局" /><Label id="SelectedControl" class="small" text="拖动按钮调整位置" /></Panel>
+                <Panel class="editor-setting"><Label text="大小" /><Slider id="ButtonSize" direction="horizontal" min="0.065" max="0.5" value="0.1" increment="0.005" /></Panel>
+                <Panel class="editor-setting"><Label text="透明度" /><Slider id="ButtonOpacity" direction="horizontal" min="0.2" max="1" value="0.6" increment="0.05" /></Panel>
+                <Button class="compact" onactivate="MobileMenu.Action('toggle_layout_tools');"><Label text="收起" /></Button>
+                <Button class="compact" onactivate="MobileMenu.Action('default_layout');"><Label text="重置" /></Button>
+                <Button class="compact" onactivate="MobileMenu.Back();"><Label text="取消" /></Button>
+                <Button class="primary compact" onactivate="MobileMenu.Action('save_layout');"><Label text="保存" /></Button>
+            </Panel>
+            <Button id="ShowEditorTools" class="editor-toggle compact" onactivate="MobileMenu.Action('toggle_layout_tools');"><Label text="显示编辑工具" /></Button>
+            <Label id="EditorStatus" class="editor-status" text="" />
+        </Panel>
+        <Panel id="TouchControls" class="touch-controls" hittest="false" hittestchildren="false" />
+        <Panel id="LoadingPage" class="loading-page" hittest="true">
+            <Panel class="loading-card"><Label class="eyebrow" text="即将进入战场" /><Label id="LoadingMap" class="hero" text="正在准备" /><Label id="LoadStage" class="description" text="正在载入地图与游戏资源" /><Panel class="load-track"><Panel id="LoadProgress" /></Panel><Label id="LoadPercent" class="load-percent" text="0%" /><Label class="small" text="左侧移动 · 右侧滑动瞄准 · 菜单中可调整按键布局" /></Panel>
+        </Panel>
+    </MobileGameUI>
+</root>

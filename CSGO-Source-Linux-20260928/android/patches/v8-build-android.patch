@@ -1,0 +1,13 @@
+diff --git a/config/compiler/BUILD.gn b/config/compiler/BUILD.gn
+index 9137028..a4cb0c6 100644
+--- a/config/compiler/BUILD.gn
++++ b/config/compiler/BUILD.gn
+@@ -312,6 +312,8 @@ config("compiler") {
+       "-Wl,-z,noexecstack",
+       "-Wl,-z,now",
+       "-Wl,-z,relro",
++      "-Wl,-z,max-page-size=16384",
++      "-Wl,-z,common-page-size=16384",
+     ]
+     if (!using_sanitizer) {
+       if (!use_cfi_diag) {

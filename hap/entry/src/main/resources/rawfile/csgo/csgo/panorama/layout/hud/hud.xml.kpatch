@@ -1,0 +1,9 @@
+target: csgo/panorama/layout/hud/hud.xml
+@@ after: <include src="file://{resources}/styles/hud/hud.css" />
+		<include src="file://{resources}/styles/csno_touch_hud.css" />
+@@ after: </styles>
+	<scripts>
+		<include src="file://{resources}/scripts/csno_touch_hud.js" />
+	</scripts>
+@@ before: <CSGOHudChat id="HudChat"/>
+		<Panel id="CsnoTouchHud" class="csno-hud-root" hittest="false" hittestchildren="false" />

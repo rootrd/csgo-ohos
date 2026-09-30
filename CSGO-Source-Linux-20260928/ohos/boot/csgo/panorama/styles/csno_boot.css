@@ -1,0 +1,208 @@
+/* CS:NO boot package: the resource download page (base_mainmenu.xml).  Colours follow the CS:GO main menu. */
+.CsnoRoot
+{
+	width: 100%;
+	height: 100%;
+	flow-children: down;
+	background-color: #0f1720;
+	font-family: "Noto Sans CJK SC", "Noto Sans", "Roboto", sans-serif;
+	color: #d6dde6;
+}
+
+.CsnoTopBar
+{
+	width: 100%;
+	height: 96px;
+	flow-children: right;
+	padding: 0px 56px;
+	background-color: #0a0f15;
+	border-bottom: 2px solid #1f2c3a;
+}
+
+.CsnoLogo
+{
+	vertical-align: center;
+	font-size: 44px;
+	font-weight: bold;
+	letter-spacing: 3px;
+	color: #ffffff;
+}
+
+.CsnoLogoSub
+{
+	vertical-align: center;
+	margin-left: 24px;
+	font-size: 22px;
+	color: #7f8c9a;
+}
+
+.CsnoCard
+{
+	width: 62%;
+	horizontal-align: center;
+	margin-top: 64px;
+	padding: 44px 56px 36px 56px;
+	flow-children: down;
+	background-color: #16212ccc;
+	border: 1px solid #243444;
+	border-radius: 6px;
+}
+
+.CsnoPhase
+{
+	font-size: 30px;
+	color: #ffffff;
+}
+
+.CsnoPercentRow
+{
+	width: 100%;
+	margin-top: 18px;
+	flow-children: right;
+}
+
+.CsnoPercent
+{
+	font-size: 64px;
+	font-weight: bold;
+	color: #e9b44c;
+}
+
+.CsnoSpeed
+{
+	horizontal-align: right;
+	vertical-align: bottom;
+	margin-bottom: 12px;
+	font-size: 24px;
+	color: #b4bac2;
+}
+
+.CsnoBar
+{
+	width: 100%;
+	height: 14px;
+	margin-top: 14px;
+	background-color: #0b1219;
+	border-radius: 7px;
+}
+
+.CsnoBarFill
+{
+	width: 0%;
+	height: 100%;
+	background-color: #e9b44c;
+	border-radius: 7px;
+	transition-property: width;
+	transition-duration: 0.4s;
+}
+
+.CsnoBar.CsnoBarWaiting .CsnoBarFill
+{
+	background-color: #3b4c5e;
+}
+
+.CsnoAmount
+{
+	margin-top: 18px;
+	font-size: 24px;
+	color: #d6dde6;
+}
+
+.CsnoFile
+{
+	margin-top: 6px;
+	font-size: 18px;
+	color: #6f7c8a;
+	text-overflow: ellipsis;
+	width: 100%;
+}
+
+.CsnoNote
+{
+	margin-top: 22px;
+	width: 100%;
+	font-size: 20px;
+	color: #8e9aa7;
+}
+
+.CsnoNote.CsnoNoteError
+{
+	color: #ffb4ab;
+}
+
+.CsnoButtons
+{
+	margin-top: 28px;
+	flow-children: right;
+	horizontal-align: right;
+}
+
+.CsnoBtn
+{
+	min-width: 180px;
+	height: 60px;
+	margin-left: 18px;
+	padding: 0px 28px;
+	background-color: #243444;
+	border-radius: 4px;
+}
+
+.CsnoBtn Label
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 26px;
+	color: #d6dde6;
+}
+
+.CsnoBtn:hover, .CsnoBtn:active
+{
+	background-color: #33485d;
+}
+
+.CsnoBtnPrimary
+{
+	background-color: #b8862c;
+}
+
+.CsnoBtnPrimary Label
+{
+	color: #ffffff;
+	font-weight: bold;
+}
+
+.CsnoBtnPrimary:hover, .CsnoBtnPrimary:active
+{
+	background-color: #d19a36;
+}
+
+.CsnoHidden
+{
+	visibility: collapse;
+}
+
+.CsnoChips
+{
+	horizontal-align: center;
+	margin-top: 28px;
+	flow-children: right;
+}
+
+.CsnoChip
+{
+	margin: 0px 8px;
+	padding: 8px 18px;
+	font-size: 20px;
+	color: #b4bac2;
+	background-color: #16212c;
+	border: 1px solid #243444;
+	border-radius: 16px;
+}
+
+.CsnoFooter
+{
+	horizontal-align: center;
+	margin-top: 18px;
+	font-size: 18px;
+	color: #56626f;
+}

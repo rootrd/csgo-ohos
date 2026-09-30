@@ -1,0 +1,38 @@
+<root>
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+		<include src="file://{resources}/styles/settings/settings.css" />
+		<include src="file://{resources}/styles/mainmenu.css"/>
+		<include src="file://{resources}/styles/csno_touch.css"/>
+	</styles>
+
+	<scripts>
+		<include src="file://{resources}/scripts/settingsmenu_shared.js" />
+		<include src="file://{resources}/scripts/csno_bridge.js" />
+		<include src="file://{resources}/scripts/csno_feedback.js" />
+	</scripts>
+
+	<!-- CS:NO (09-29, 0.2.1, 老板: bug 反馈处): 问题反馈 -- the player's words + this run's log to the server
+	     (CsnoReporter.queueFeedback, reason "feedback").  Tapping the box opens the Android keyboard. -->
+	<Panel useglobalcontext="true" class="SettingsMenuTab" onload="CsnoFeedback.Init();">
+		<Panel class="SettingsMenuTabContent vscroll">
+			<Panel class="SettingsBackground">
+				<Panel class="SettingsSectionTitleContianer">
+					<Label class="SettingsSectionTitleLabel" text="问题反馈" />
+				</Panel>
+				<Label class="csno-row-hint" text="遇到花屏、黑屏、闪退、卡顿、声音、按键等问题，在下面写清楚：什么时候出现、在哪张地图 / 哪个界面、怎么操作会出现。提交后会连同这次游戏的日志一起发给我们（不含账号、位置、通讯录和你的文件）。" />
+				<Label class="csno-row-hint" text="画面问题最好再去「一键测试」跑一次，截图会自动一起上传。" />
+				<Panel class="horizontal-separator"/>
+				<TextEntry id="CsnoFeedbackText" maxchars="500" multiline="true" placeholder="点这里输入问题描述（最多 500 字）"
+					style="width: 100%; height: 220px; font-size: 22px; color: #e0e0e0; background-color: #00000066; padding: 10px; margin: 8px 0px;" />
+				<Panel class="csno-row">
+					<Label id="CsnoFeedbackCount" class="csno-row-label" text="0 / 500" />
+					<Button id="CsnoFeedbackSend" class="csno-action csno-action--primary" onactivate="CsnoFeedback.Send();">
+						<Label class="csno-btn-text" text="提交" />
+					</Button>
+				</Panel>
+				<Label id="CsnoFeedbackHint" class="csno-row-hint" text="" />
+			</Panel>
+		</Panel>
+	</Panel>
+</root>

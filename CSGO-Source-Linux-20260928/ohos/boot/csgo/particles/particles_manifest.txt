@@ -1,0 +1,4 @@
+// CS:NO boot package: no particle effects on the download page
+particles_manifest
+{
+}

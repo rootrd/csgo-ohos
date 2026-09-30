@@ -1,0 +1,133 @@
+<root>
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+		<include src="file://{resources}/styles/settings/settings.css" />
+		<include src="file://{resources}/styles/mainmenu.css"/>
+		<include src="file://{resources}/styles/csno_touch.css"/>
+		<include src="file://{resources}/styles/csno_crosshair.css"/>
+	</styles>
+
+	<scripts>
+		<include src="file://{resources}/scripts/settingsmenu_shared.js" />
+		<include src="file://{resources}/scripts/csno_crosshair.js" />
+	</scripts>
+
+	<!-- CS:NO (09-29, 0.2.3, 老板: 自定义准心): every crosshair convar of the 2019 client (weapon_csbase.cpp DrawCrosshair),
+	     bound with the game's own settings controls; the preview draws what DrawCrosshair would (csno_crosshair.js). -->
+	<Panel useglobalcontext="true" class="SettingsMenuTab" onload="CsnoCrosshair.Init();">
+		<Panel class="SettingsMenuTabContent vscroll">
+			<Panel class="SettingsBackground">
+				<Panel class="SettingsSectionTitleContianer">
+					<Label class="SettingsSectionTitleLabel" text="准星" />
+				</Panel>
+
+				<Panel id="CsnoXhPreview" class="csno-xh-preview">
+					<Panel class="csno-xh-bg-dark" />
+					<Panel class="csno-xh-bg-light" />
+					<Panel id="CsnoXhLayer" class="csno-xh-layer" hittest="false" />
+				</Panel>
+				<Label class="csno-row-hint" text="预览是站着不动时的样子（实际大小）；动态样式在移动、开枪时会张开。" />
+
+				<Panel class="csno-row">
+					<Label class="csno-row-label csno-xh-presets-label" text="常用样式" />
+					<Button class="csno-action csno-xh-preset" onactivate="CsnoCrosshair.Preset( 'default' );">
+						<Label class="csno-btn-text" text="默认" />
+					</Button>
+					<Button class="csno-action csno-xh-preset" onactivate="CsnoCrosshair.Preset( 'small' );">
+						<Label class="csno-btn-text" text="小十字" />
+					</Button>
+					<Button class="csno-action csno-xh-preset" onactivate="CsnoCrosshair.Preset( 'dot' );">
+						<Label class="csno-btn-text" text="圆点" />
+					</Button>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="样式" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="cl_crosshairstyle">
+						<Label text="默认（动态）" id="csnoxh_style0" value="0"/>
+						<Label text="默认（静态）" id="csnoxh_style1" value="1"/>
+						<Label text="经典" id="csnoxh_style2" value="2"/>
+						<Label text="经典（动态）" id="csnoxh_style3" value="3"/>
+						<Label text="经典（静态）" id="csnoxh_style4" value="4"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+
+				<CSGOSettingsSlider text="长度" min="0" max="10" displayprecision="1" convar="cl_crosshairsize"/>
+				<Panel class="horizontal-separator"/>
+				<CSGOSettingsSlider text="粗细" min="0" max="6" displayprecision="1" convar="cl_crosshairthickness"/>
+				<Panel class="horizontal-separator"/>
+				<CSGOSettingsSlider text="间距" min="-5" max="5" displayprecision="1" convar="cl_crosshairgap"/>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="中心点" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="cl_crosshairdot">
+						<Label text="关" id="csnoxh_dot0" value="0"/>
+						<Label text="开" id="csnoxh_dot1" value="1"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="T 形（去掉上面一横）" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="cl_crosshair_t">
+						<Label text="关" id="csnoxh_t0" value="0"/>
+						<Label text="开" id="csnoxh_t1" value="1"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="黑色描边" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="cl_crosshair_drawoutline">
+						<Label text="关" id="csnoxh_ol0" value="0"/>
+						<Label text="开" id="csnoxh_ol1" value="1"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+				<CSGOSettingsSlider text="描边粗细" min="0.1" max="3" displayprecision="1" convar="cl_crosshair_outlinethickness"/>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="颜色" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="cl_crosshaircolor">
+						<Label text="红" id="csnoxh_clr0" value="0"/>
+						<Label text="绿" id="csnoxh_clr1" value="1"/>
+						<Label text="黄" id="csnoxh_clr2" value="2"/>
+						<Label text="蓝" id="csnoxh_clr3" value="3"/>
+						<Label text="青" id="csnoxh_clr4" value="4"/>
+						<Label text="自定义（下面的红绿蓝）" id="csnoxh_clr5" value="5"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+				<CSGOSettingsSlider text="自定义：红" min="0" max="255" displayprecision="0" convar="cl_crosshaircolor_r"/>
+				<Panel class="horizontal-separator"/>
+				<CSGOSettingsSlider text="自定义：绿" min="0" max="255" displayprecision="0" convar="cl_crosshaircolor_g"/>
+				<Panel class="horizontal-separator"/>
+				<CSGOSettingsSlider text="自定义：蓝" min="0" max="255" displayprecision="0" convar="cl_crosshaircolor_b"/>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="透明度" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="cl_crosshairusealpha">
+						<Label text="按下面的数值" id="csnoxh_ua1" value="1"/>
+						<Label text="高亮叠加（不透明）" id="csnoxh_ua0" value="0"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+				<Panel class="horizontal-separator"/>
+				<CSGOSettingsSlider text="不透明度" min="0" max="255" displayprecision="0" convar="cl_crosshairalpha"/>
+				<Panel class="horizontal-separator"/>
+
+				<Panel class="SettingsMenuDropdownContainer">
+					<Label text="间距随武器变化" class="half-width"/>
+					<CSGOSettingsEnumDropDown class="PopupButton White" convar="cl_crosshairgap_useweaponvalue">
+						<Label text="关" id="csnoxh_gw0" value="0"/>
+						<Label text="开" id="csnoxh_gw1" value="1"/>
+					</CSGOSettingsEnumDropDown>
+				</Panel>
+			</Panel>
+		</Panel>
+	</Panel>
+</root>

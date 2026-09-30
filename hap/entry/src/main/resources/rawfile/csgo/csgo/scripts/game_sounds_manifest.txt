@@ -1,0 +1,4 @@
+// CS:NO boot package: no sounds while the game assets download
+"game_sounds_manifest"
+{
+}

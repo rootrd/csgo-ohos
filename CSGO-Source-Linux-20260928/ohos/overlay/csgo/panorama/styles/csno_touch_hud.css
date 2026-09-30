@@ -1,0 +1,77 @@
+/* CS:NO (09-28, 0.1.5): the in-game touch controls drawn by Panorama (csno_touch_hud.js).  Same look as the Java
+   overlay they replace (TouchControls.onDraw): white 19% discs, 60% while held, FIRE red, the stick 18% with a knob.
+   Panorama blends in linear light and Android in sRGB, so the same alpha looks far brighter here: alpha^1.5 below. */
+.csno-hud-root
+{
+	width: 100%;
+	height: 100%;
+}
+
+.csno-hud-off
+{
+	visibility: collapse;
+}
+
+.csno-hud-btn
+{
+	border-radius: 50%;
+	background-color: #ffffff15;
+	border: 2px solid #ffffff41;
+}
+
+.csno-hud-btn.csno-hud-down
+{
+	background-color: #ffffff75;
+}
+
+.csno-hud-btn.csno-hud-fire
+{
+	background-color: #ff55442a;
+}
+
+.csno-hud-btn.csno-hud-fire.csno-hud-down
+{
+	background-color: #ff55448b;
+}
+
+.csno-hud-btn.csno-hud-slot
+{
+	background-color: #ffffff0f;
+}
+
+.csno-hud-btn.csno-hud-slot.csno-hud-down
+{
+	background-color: #ffffff75;
+}
+
+.csno-hud-hidden
+{
+	visibility: collapse;
+}
+
+.csno-hud-label
+{
+	horizontal-align: center;
+	vertical-align: center;
+	text-align: center;
+	font-size: 32px;
+	color: #ffffffce;
+}
+
+.csno-hud-stick
+{
+	border-radius: 50%;
+	background-color: #ffffff14;
+	border: 2px solid #ffffff31;
+}
+
+.csno-hud-knob
+{
+	border-radius: 50%;
+	background-color: #ffffff31;
+}
+
+.csno-hud-knob.csno-hud-down
+{
+	background-color: #ffffff75;
+}

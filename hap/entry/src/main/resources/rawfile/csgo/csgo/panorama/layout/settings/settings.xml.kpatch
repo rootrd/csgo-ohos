@@ -1,0 +1,20 @@
+target: csgo/panorama/layout/settings/settings.xml
+@@ before: <RadioButton id="KBMouseRadio"
+			  <RadioButton id="CsnoTouchRadio" group="SettingsNavBar" onactivate='SettingsMenu.NavigateToTab( "CsnoTouchSettings" )'>
+				  <Label class="" text="触控键位"/>
+			  </RadioButton>
+			  <RadioButton id="CsnoCrosshairRadio" group="SettingsNavBar" onactivate='SettingsMenu.NavigateToTab( "CsnoCrosshair" )'>
+				  <Label class="" text="准星"/>
+			  </RadioButton>
+			  <RadioButton id="CsnoLoadoutRadio" group="SettingsNavBar" onactivate='SettingsMenu.NavigateToTab( "CsnoLoadout" )'>
+				  <Label class="" text="装备"/>
+			  </RadioButton>
+			  <RadioButton id="CsnoQualityRadio" group="SettingsNavBar" onactivate='SettingsMenu.NavigateToTab( "CsnoQuality" )'>
+				  <Label class="" text="画质预设"/>
+			  </RadioButton>
+			  <RadioButton id="CsnoFeedbackRadio" group="SettingsNavBar" onactivate='SettingsMenu.NavigateToTab( "CsnoFeedback" )'>
+				  <Label class="" text="问题反馈"/>
+			  </RadioButton>
+			  <RadioButton id="CsnoSelfTestRadio" group="SettingsNavBar" onactivate='SettingsMenu.NavigateToTab( "CsnoSelfTest" )'>
+				  <Label class="" text="一键测试"/>
+			  </RadioButton>

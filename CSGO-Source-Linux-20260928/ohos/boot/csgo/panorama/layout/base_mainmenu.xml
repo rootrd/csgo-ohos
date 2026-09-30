@@ -1,0 +1,49 @@
+<root>
+	<styles>
+		<include src="file://{resources}/styles/csno_boot.css" />
+	</styles>
+	<scripts>
+		<include src="file://{resources}/scripts/csno_bridge.js" />
+		<include src="file://{resources}/scripts/csno_boot.js" />
+	</scripts>
+	<!-- CS:NO boot package: the resource download page (written for CS:NO; the engine starts on our own files while
+	     the game assets are downloaded from Valve's Steam servers by the app, CsnoDownload.java) -->
+	<Panel class="CsnoRoot">
+		<Panel class="CsnoTopBar">
+			<Label class="CsnoLogo" text="CS:NO" />
+			<Label class="CsnoLogoSub" text="反恐精英 2019 · 安卓原生" />
+		</Panel>
+
+		<Panel class="CsnoCard">
+			<Label id="CsnoPhase" class="CsnoPhase" text="正在连接 Steam" />
+			<Panel class="CsnoPercentRow">
+				<Label id="CsnoPercent" class="CsnoPercent" text="准备中" />
+				<Label id="CsnoSpeed" class="CsnoSpeed" text="" />
+			</Panel>
+			<Panel class="CsnoBar">
+				<Panel id="CsnoBarFill" class="CsnoBarFill" />
+			</Panel>
+			<Label id="CsnoAmount" class="CsnoAmount" text="正在连接 Steam 服务器…" />
+			<Label id="CsnoFile" class="CsnoFile" text="" />
+			<Label id="CsnoNote" class="CsnoNote" html="true" text="" />
+			<Panel class="CsnoButtons">
+				<Button id="CsnoRetry" class="CsnoBtn CsnoBtnPrimary" onactivate="CsnoBoot.Retry()">
+					<Label text="重试" />
+				</Button>
+				<Button id="CsnoEnter" class="CsnoBtn CsnoBtnPrimary" onactivate="CsnoBoot.Enter()">
+					<Label text="进入游戏" />
+				</Button>
+				<Button id="CsnoQuit" class="CsnoBtn" onactivate="CsnoBoot.Quit()">
+					<Label text="退出" />
+				</Button>
+			</Panel>
+		</Panel>
+
+		<Panel class="CsnoChips">
+			<Label id="CsnoChipWire" class="CsnoChip" text="下载约 8.9 GB" />
+			<Label id="CsnoChipDisk" class="CsnoChip" text="安装后约 19.5 GB" />
+			<Label id="CsnoChipFree" class="CsnoChip" text="" />
+		</Panel>
+		<Label id="CsnoFooter" class="CsnoFooter" text="资源直接从 Valve 的 Steam 服务器下载" />
+	</Panel>
+</root>

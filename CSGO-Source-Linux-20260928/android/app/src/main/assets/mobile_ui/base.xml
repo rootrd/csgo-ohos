@@ -1,0 +1,4 @@
+<root>
+    <styles><include src="file://{resources}/mobile/menu.css" /></styles>
+    <Panel class="MobileLayer" hittest="false"><MobileGameUI id="MobileRoot" class="MobileRoot" /></Panel>
+</root>

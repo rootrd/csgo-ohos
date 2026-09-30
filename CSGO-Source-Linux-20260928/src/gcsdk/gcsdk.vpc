@@ -1,0 +1,45 @@
+//-----------------------------------------------------------------------------
+//	GCSDK.VPC
+//
+//	Client-side Game Coordinator SDK library: protobuf message wrappers and
+//	pools, shared objects and caches, job type registry, emit groups and the
+//	shared CSteamID string helpers. Desktop platforms ship this as a prebuilt
+//	archive; platforms without one build it from these sources. No transport
+//	exists here: without a GC connection no job is ever created or resumed.
+//-----------------------------------------------------------------------------
+
+$Macro SRCDIR				".."
+$Macro GENERATED_PROTO_DIR	"generated_proto"
+
+$Include "$SRCDIR\vpc_scripts\source_lib_base.vpc"
+$Include "$SRCDIR\vpc_scripts\protobuf_builder.vpc"
+$Include "steammessages_include.vpc"
+
+$Configuration
+{
+	$Compiler
+	{
+		$AdditionalIncludeDirectories	"$BASE;$SRCDIR\public\gcsdk;$SRCDIR\gcsdk\steamextra;$SRCDIR\thirdparty\protobuf-2.5.0\src;$GENERATED_PROTO_DIR"
+	}
+}
+
+$Project "gcsdk"
+{
+	$Folder	"Source Files"
+	{
+		$File	"gclogger.cpp"
+		$File	"job.cpp"
+		$File	"msgprotobuf.cpp"
+		$File	"netpacket.cpp"
+		$File	"protobufsharedobject.cpp"
+		$File	"sharedobject.cpp"
+		$File	"sharedobjectcache.cpp"
+		$File	"webapi_response.cpp"
+		$File	"$SRCDIR\common\steamid.cpp"
+	}
+
+	$Folder "Protobuf Files"
+	{
+		$DynamicFile "$GENERATED_PROTO_DIR\steammessages.pb.cc"
+	}
+}
