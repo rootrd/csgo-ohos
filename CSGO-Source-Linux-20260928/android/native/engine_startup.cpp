@@ -129,10 +129,18 @@ int runSourceEngine(int argc, char **argv, const char *resourceRoot, const char 
     // is launched from SurfaceCreated), and materialsystem's device/swapchain
     // creation inside LauncherMain needs a window with a bound OHNativeWindow
     // (DXVK autoRegisterFromSdl reads SDL.prop.window.openharmony.window.pointer).
-    // sdlmgr's own pre-created window reuses this one via SDL_GetWindowFromID(1).
-    if (!SDL_CreateWindow("CSGO", mode->w, mode->h,
-                          SDL_WINDOW_VULKAN | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_HIGH_PIXEL_DENSITY))
+    // sdlmgr's own pre-created window reuses this one (pointer passed via env:
+    // libSDL3 的 OPENHARMONY_Window 全局是 hidden visibility，launcher_client
+    // 链接不到；环境变量跨库可见且无符号可见性问题)
+    SDL_Window *earlyWindow = SDL_CreateWindow("CSGO", mode->w, mode->h,
+                          SDL_WINDOW_VULKAN | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    if (!earlyWindow)
         throw std::runtime_error(std::string("Early game window creation failed: ") + SDL_GetError());
+    {
+        char windowPtr[32];
+        snprintf(windowPtr, sizeof(windowPtr), "%p", (void *)earlyWindow);
+        setenv("CSGO_OHOS_WINDOW", windowPtr, 1);
+    }
 #endif
     const int width = mode->w > mode->h ? mode->w : mode->h;
     const int height = mode->w > mode->h ? mode->h : mode->w;

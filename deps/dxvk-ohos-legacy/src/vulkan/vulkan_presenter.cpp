@@ -47,7 +47,10 @@ namespace dxvk::vk {
       return nullptr;
     }
 
-    void* nativeWindow = getPtrProp(props, "SDL.prop.window.openharmony.window.pointer", nullptr);
+    // SDL 3.0.5 属性名是 SDL.window.openharmony.window（旧名 SDL.prop.* 不存在）
+    void* nativeWindow = getPtrProp(props, "SDL.window.openharmony.window", nullptr);
+    if (!nativeWindow)
+      nativeWindow = getPtrProp(props, "SDL.prop.window.openharmony.window.pointer", nullptr);
     if (!nativeWindow) {
       Logger::warn("Presenter: autoRegisterFromSdl: OHNativeWindow not found in SDL properties");
       return nullptr;

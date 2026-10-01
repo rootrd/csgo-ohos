@@ -36,14 +36,19 @@ namespace dxvk {
     return FALSE;
   }
 
-  BOOL GetMonitorDisplayMode(HMONITOR, DWORD, DEVMODEW* pMode) {
+  BOOL GetMonitorDisplayMode(HMONITOR, DWORD modeIndex, DEVMODEW* pMode) {
     if (!pMode)
+      return FALSE;
+    // OHOS 单显示器：只报一个原生模式。modeIndex 递增枚举时必须返回 FALSE
+    // 终止调用方的 while 循环（CacheModes 依赖它结束，否则 100% CPU 无限转）
+    if (modeIndex != 0 && modeIndex != ENUM_CURRENT_SETTINGS && modeIndex != ENUM_REGISTRY_SETTINGS)
       return FALSE;
     UINT w = 0, h = 0;
     OhosDisplaySize(&w, &h);
     pMode->dmPelsWidth  = w;
     pMode->dmPelsHeight = h;
     pMode->dmDisplayFrequency = 60;
+    fprintf(stderr, "CSGO_TRACE: dxvk GetMonitorDisplayMode idx=%u -> %ux%u\n", modeIndex, w, h);
     return TRUE;
   }
 

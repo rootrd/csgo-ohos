@@ -66,21 +66,20 @@
 
 ## 4. 图形栈（DXVK / Vulkan / Maleoon）
 
-- **DXVK d3d9 按运行名打包**：soname 是 `d3d9.so`，HAP 里也叫 `d3d9.so`（不能带 lib 前缀
-  改名），依赖 `libdxvk_dxgi.so.0`（带版本 soname）。
-- **适配器枚举**：`enumerateByDisplays` 依赖 `EnumDisplayDevicesA`，stub 返回 FALSE 会
-  导致 0 适配器 → `m_Adapters[0]` memcpy(NULL) SEGV。stub 实现单显示器报告；
-  显示分辨率从 `CSGO_OHOS_DISPLAY=WxH` 环境变量读。
-- **Maleoon 920 quirk**（Vulkan probe 实测）：同一 render pass 内多次
-  `vkCmdClearAttachments` **只有第一次生效**（第二次 clear 的白心画不出来）。
-  游戏渲染出现象限/背景异常时优先怀疑这里。
-- **probe 上屏验证法**：`CSGO_OHOS_PROBE` 开关（android/CMakeLists.txt，CACHE 值需 FORCE
-  才刷新）画四色图案——不依赖引擎就能证明「Vulkan→surface」全链通。
-  实测 2132 帧 ~120FPS。
-- **Vulkan 1.3.309**（Maleoon 920 驱动）满足 DXVK legacy 需求；DXVK_STATE_CACHE_PATH
-  指向沙箱可写目录。
-- **DXVK 配置**：`DXVK_CONFIG = "dxvk.enableAsync = True"`（着色器异步编译），
-  `DXVK_LOG_PATH`/`DXVK_WSI_DRIVER=SDL3`；dxvk.conf 放游戏根（CWD 被 chdir 到那里）。
+- **Maleoon 920 vkCreateDevice 行为模型（2026-10-01 实证，最关键）**：
+  1) properties2 查询报支持的 core feature，vkCreateDevice **一律 FEATURE_NOT_PRESENT**（pEnabledFeatures / Features2-pNext 两种传法皆拒）
+  2) 全零 core feature 可创建；**部分位经掩码置位可被接受**（robust+BC 已证、12 位集已证）→ 用 dxvk.conf `csgoVkFeatureMask`（位序掩码，DXVK 分支已支持）试探真实支持集
+  3) **成功创建后绝不能再调 vkCreateDevice = 驱动 SIGSEGV**；失败→失败→…→成功序列安全 → 回退梯子必须「失败重试、成功即止」
+  4) 扩展枚举无辜（timeline_semaphore 等枚举得到但创建链被拒是 feature 链问题）
+- **DXVK 8 步回退梯子**（dxvk_adapter.cpp createDevice）：禁扩展组(1:ts+m4, 2:demote/r2/eds, 3:tf/hqr/rp2/dsr/dic/vad)→剥 pNext(4)→swapchain-only(5)→curated(6)→curated-F2(7)→零+mask(8)。每个 FallbackStep 同时 disable 扩展并从 pNext 摘除对应 feature struct——**禁扩展必须同步摘 struct，否则链上残留照样被拒**
+- **SDL3 窗口属性真名**：`SDL.window.openharmony.window`（`SDL_PROP_WINDOW_OPENHARMONY_WINDOW_POINTER`）。旧式 `SDL.prop.window.*` 名不存在→查 properties 得 NULL
+- **跨库传 SDL_Window\***：libSDL3 全局（OPENHARMONY_Window）是 hidden visibility，其他库链接不到；用环境变量传 `%p`（strtoull base16 解回）或走 SDL properties
+- **GetWindowFromID(1) 不可靠**：窗口 ID 不保证从 1 开始（实测首个窗口 id=2）
+- **DXVK d3d9 按运行名打包**：soname `d3d9.so`（不能改名），依赖 `libdxvk_dxgi.so.0`
+- **适配器枚举**：EnumDisplayDevicesA stub 需实现单显示器；`CSGO_OHOS_DISPLAY=WxH` 控制 DXVK 分辨率
+- ** Maleoon quirk**：同一 render pass 多次 vkCmdClearAttachments 只有第一次生效（probe 实测）
+- **ohos_log 必须 (format, va_list)**；**DXVK 诊断**：错误要带 VkResult 和请求扩展清单（默认丢弃，排查全靠补日志）
+- **dxvk.conf 特殊键**：本移植加 `csgoVkFeatureMask`（dxvk_adapter 直接解析）；dxvk.conf 在游戏根，经 overlay → rawfile → seed 每次启动覆盖（shell 写不进沙盒，改源头）
 
 ## 5. SDL3 OHOS 后端
 

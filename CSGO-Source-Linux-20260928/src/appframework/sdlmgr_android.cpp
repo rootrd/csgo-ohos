@@ -358,16 +358,24 @@ public:
             Shutdown();
             return INIT_FAILED;
         }
-#if !defined( ANDROID )
+#if !defined( ANDROID ) || defined( __OHOS__ )
         // MaterialSystem queries the renderer before its first SetMode call.
         // Keep one window throughout initialization and subsequent mode changes.
+        // OHOS：androidarm64 目标同样定义 ANDROID，必须显式 || __OHOS__ 才能进来，
+        // 否则 m_window 为空 → CreateGameWindow 二次建窗撞 SDL 单窗口限制。
         if ( !CommandLine()->FindParm("-textmode") )
         {
             Warning( "CSGO_TRACE: sdlmgr Init pre-window calling...\n" );
 #ifdef __OHOS__
             // 复用 engine_startup 在 SDL_InitSubSystem 后建的窗口（OHOS 单窗口限制，
-            // 且 DXVK 已把它注册为 swapchain 的 native window）
-            m_window = SDL_GetWindowFromID( 1 );
+            // 且 DXVK 已把它注册为 swapchain 的 native window）。指针经环境变量
+            // CSGO_OHOS_WINDOW 传递（libSDL3 全局是 hidden visibility 链接不到）。
+            if ( const char *windowPtr = getenv("CSGO_OHOS_WINDOW") )
+                m_window = (SDL_Window *)(uintptr_t)strtoull( windowPtr, nullptr, 16 );
+            if ( !m_window )
+                m_window = SDL_GetWindowFromID( 1 );
+            if ( m_window )
+                Warning( "CSGO_TRACE: pre-window reuse id=%u\n", SDL_GetWindowID( m_window ) );
 #endif
             if ( !m_window )
                 m_window = SDL_CreateWindow("", 640, 480, SDL_WINDOW_VULKAN |

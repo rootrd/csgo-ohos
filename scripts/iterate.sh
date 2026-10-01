@@ -25,7 +25,9 @@ case "$WHAT" in
     bash scripts/build-ohos-engine.sh native 2>&1 | tail -2
     ;;
 esac
-[[ "$WHAT" == "none" ]] || bash scripts/build-ohos-engine.sh stage > /dev/null 2>&1
+# stage 必须无条件执行（含 DXVK d3d9.so 回传拷贝）——none 模式跳过 stage 会让
+# hap libs 里残留旧库（曾导致 DXVK 修复两轮未上机）
+bash scripts/build-ohos-engine.sh stage > /dev/null 2>&1
 
 # 打包（Windows hvigorw，含 versionCode bump + 资源装配 + 签名）
 winbash "cd /e/csgo/CSGO-Source-Linux-20260928 && bash scripts/build-ohos.sh package" 2>&1 | grep -E "BUILD" | head -1
@@ -44,8 +46,11 @@ echo "[iterate] device libmain 新打点标记: ${CHECK:-?} (1=新库)"
 sleep 1
 "$HDC" shell "power-shell wakeup" > /dev/null 2>&1 || true
 "$HDC" shell "aa start -a EntryAbility -b com.csgosource.ohos" 2>&1 | head -1
-echo "[iterate] launched, waiting 75s..."
-sleep 75
+# 等 seed 解包完成后自动点击「启动游戏」按钮（2848x1276 横屏，按钮中心 1424,927）
+sleep 15
+"$HDC" shell "uitest uiInput click 1424 927" > /dev/null 2>&1 || true
+echo "[iterate] launched + auto-click, waiting 60s..."
+sleep 60
 
 echo "=========== 引擎日志摘要 ==========="
 "$HDC" shell "hilog -x | grep 'A0C001' | tail -25" 2>&1
