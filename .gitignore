@@ -47,3 +47,7 @@ apk_analysis/
 deps/glslang/lib/
 deps/glslang/bin/
 CSGO-Source-Linux-20260928/发给同事.md
+
+# Python build/test caches
+__pycache__/
+*.pyc

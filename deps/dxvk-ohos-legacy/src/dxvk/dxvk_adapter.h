@@ -195,11 +195,13 @@ namespace dxvk {
      * Creates a logical device for this adapter.
      * \param [in] instance Parent instance
      * \param [in] enabledFeatures Device features
+     * \param [in] requiredCoreFeatures Audited D3D9 baseline for optional-feature retries
      * \returns Device handle
      */
     Rc<DxvkDevice> createDevice(
       const Rc<DxvkInstance>&   instance,
-            DxvkDeviceFeatures  enabledFeatures);
+            DxvkDeviceFeatures  enabledFeatures,
+      const VkPhysicalDeviceFeatures* requiredCoreFeatures = nullptr);
     
     /**
      * \brief Registers memory allocation

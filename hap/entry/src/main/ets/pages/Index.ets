@@ -103,8 +103,11 @@ struct Index {
 
           // 资源状态
           Row({ space: 8 }) {
-            Circle({ width: 10, height: 10 })
-              .fill(this.resourceReady ? '#4CC94C' : '#E0B94A')
+            Row()
+              .width(10)
+              .height(10)
+              .borderRadius(5)
+              .backgroundColor(this.resourceReady ? '#4CC94C' : '#E0B94A')
             Text(this.resourceReady ? '游戏资源已就绪' : '缺少完整游戏资源（code.pbin / pak01）')
               .fontSize(14)
               .fontColor(this.resourceReady ? '#4CC94C' : '#E0B94A')

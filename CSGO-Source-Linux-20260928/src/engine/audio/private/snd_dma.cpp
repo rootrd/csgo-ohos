@@ -84,19 +84,33 @@ extern IBik *bik;
 ConVar snd_sos_show_client_rcv("snd_sos_show_client_rcv", "0", FCVAR_CHEAT);
 ConVar snd_sos_allow_dynamic_chantype( "snd_sos_allow_dynamic_chantype", IsPlatformX360() ? "1" : "1" );
 
+#if defined( __OHOS__ )
+// The legacy Steam Audio binary targets Bionic, not OHOS/musl. Keep the
+// ordinary Source/SDL mixer available without entering unsupported HRTF code.
+ConVar snd_hwcompat( "snd_hwcompat", "1", FCVAR_ARCHIVE|FCVAR_RELEASE, "OHOS uses the standard audio mixer.", true, 1.0f, true, 1.0f );
+#else
 ConVar snd_hwcompat( "snd_hwcompat", "0", FCVAR_ARCHIVE|FCVAR_RELEASE );
+#endif
 
 extern ConVar snd_surround;
 
 bool IsUsingHRTF()
 {
+#if defined( __OHOS__ )
+	return false;
+#else
 	return !snd_hwcompat.GetBool() && snd_surround.GetInt() <= 0;
+#endif
 }
 
 ConVar snd_hrtf_lerp_min_distance("snd_hrtf_lerp_min_distance", "100.0", FCVAR_CHEAT);
 ConVar snd_hrtf_lerp_max_distance("snd_hrtf_lerp_max_distance", "800.0", FCVAR_CHEAT);
 
+#if defined( __OHOS__ )
+ConVar snd_occlusion( "snd_occlusion", "0", FCVAR_HIDDEN, "Steam Audio occlusion is unavailable on OHOS.", true, 0.0f, true, 0.0f );
+#else
 ConVar snd_occlusion( "snd_occlusion", "1", FCVAR_HIDDEN );
+#endif
 
 IPLContext g_phononEngineContext;
 IPLhandle g_phononEngineScene, g_phononEngineEnvironment, g_phononEngineRenderer;
@@ -1077,7 +1091,7 @@ void S_Init( void )
 		return;
 	}
 
-#if !defined( ANDROID )
+#if !defined( ANDROID ) && !defined( __OHOS__ )
 	// The older SDK required a scene/renderer for direct-sound effects.
 	if ( !g_phononEngineScene )
 	{

@@ -6,14 +6,15 @@ set -euo pipefail
 # 源码构建区: ~/csgo-src (WSL ext4, vhdx 在 E:\WSL)，产物回传 E:\csgo 树
 # 工具链: ~/ohos-native (来自 E:\ohos-cli commandline-tools 26.0.0.851)
 
-repo="$HOME/csgo-src/CSGO-Source-Linux-20260928"
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+repo=${CSGO_SOURCE_ROOT:-$root/CSGO-Source-Linux-20260928}
 src="$repo/src"
 out="$repo/runtime/ohos"
-prefix="$out/install"
+prefix=${DEPS_PREFIX:-$out/install}
 config=${BUILD_CONFIG:-release}
 jobs=${BUILD_JOBS:-4}
 
-export OHOS_SDK="$HOME/ohos-native"
+export OHOS_SDK=${OHOS_SDK:-$HOME/ohos-native}
 OHOS_TARGET_TRIPLE=aarch64-linux-ohos
 # makefile_base_posix.mak 的 ANDROID 分支参数（?=/env 可覆盖）
 export ANDROID_TOOLCHAIN="$OHOS_SDK/llvm"
@@ -22,6 +23,8 @@ export ANDROID_NDK_ROOT="$OHOS_SDK"          # VPC 需要 ANDROID_NDK_DIR 非空
 export ANDROID_PLATFORM=30
 export SSE2NEON_DIR="$out/deps/sse2neon"
 export DEPS_PREFIX="$prefix"
+# The source dependency builder supplies a current host executable, not i386.
+export PROTOC=${PROTOC:-${CSGO_DEPS_WORK:-$out/dependency-build}/host/protobuf/src/protoc}
 export ENGINE_SYSLIBS="-lm -ldl"
 export ENGINE_SYSLIBS_SHLIB="-lm -ldl"
 
@@ -32,6 +35,8 @@ OHOS_CXX="$ANDROID_TOOLCHAIN/bin/clang++ --target=aarch64-linux-ohos --sysroot=$
 OHOS_AR="$ANDROID_TOOLCHAIN/bin/llvm-ar"
 OHOS_RANLIB="$ANDROID_TOOLCHAIN/bin/llvm-ranlib"
 OHOS_TOOLCHAIN_CMAKE="$OHOS_SDK/build/cmake/ohos.toolchain.cmake"
+# Archives do not always preserve executable bits on the helper script.
+export GEN_SYM="OBJCOPY=$ANDROID_TOOLCHAIN/bin/llvm-objcopy bash $src/devtools/gendbg.sh"
 # SDK 自带 cmake（认识 Ohos 平台）+ ninja；放在 PATH 最前
 export PATH="$OHOS_SDK/build-tools/cmake/bin:$PATH"
 CROSS_CFLAGS="-O2 -g -fPIC -fsigned-char -fno-strict-aliasing -fno-fast-math -ffp-contract=off"
@@ -205,8 +210,8 @@ PY
         "$OHOS_AR" crs "$libcommon/bzip2_client.a" "$out/bzip2-obj/"*.o
     fi
 
-    # phonon（Steam Audio）stub：OHOS 无官方移植，用空实现保证链接/加载
-    build_phonon_stub
+    # OHOS disables Steam Audio calls at compile time; do not fabricate callable exports.
+    build_phonon_disabled
 
     # -landroid 空档案：vgui_surfacelib 的 [$ANDROIDALL] SystemLibraries 含 android，
     # OHOS 无此库；空 archive 让 lld 满足 -landroid 而不引入任何符号
@@ -259,7 +264,7 @@ ensure_git_checkout() {
 # phonon stub：Steam Audio 2.0 beta20 SDK 头（ANDROID 分支用 steam_audio/phonon.h）
 # + 从中提取全部 ipl* 符号生成汇编空实现 .so（链接器只看符号名；snd_dma.cpp 的
 # phonon 初始化在 ANDROID 构建下是死代码，运行期 no-op 安全）
-build_phonon_stub() {
+build_phonon_disabled() {
     local phonon_h="$src/public/phonon/phonon.h"
     local sdk_zip="$out/deps/steamaudio_api_2.0-beta.20.zip"
     local stub_dir="$out/phonon-stub"
@@ -286,23 +291,11 @@ with zipfile.ZipFile(archive) as sdk:
         destination.write_bytes(sdk.read(member))
 print('steam_audio headers installed')
 PY
-    python3 - "$prefix/include/steam_audio/phonon.h" "$stub_dir/phonon_stub.S" <<'PY'
-import re, sys
-header, output = sys.argv[1], sys.argv[2]
-text = open(header, encoding='utf-8', errors='replace').read()
-funcs = []
-for m in re.finditer(r'\b(ipl[A-Za-z0-9_]*)\s*\(', text):
-    n = m.group(1)
-    if n not in funcs and n not in ('iplVector3',):
-        funcs.append(n)
-with open(output, 'w') as f:
-    f.write('.text\n')
-    for n in funcs:
-        f.write('.globl %s\n.type %s, %%function\n%s:\n  ret\n' % (n, n, n))
-print('phonon asm stubs:', len(funcs))
-PY
-    $OHOS_CC -shared -fPIC -O2 -o "$prefix/lib/libphonon.so" "$stub_dir/phonon_stub.S"
-    log "phonon stub: $(grep -c globl "$stub_dir/phonon_stub.S") symbols"
+    # The __OHOS__ engine path must not reference ipl* at all. An empty static
+    # archive satisfies the legacy -lphonon flag without publishing unsafe stubs.
+    [[ ! -f "$prefix/lib/libphonon.so" ]] || die "Remove obsolete generated libphonon.so before rebuilding"
+    "$OHOS_AR" crs "$prefix/lib/libphonon.a"
+    log "Steam Audio disabled on OHOS; ordinary stereo mixer remains available"
 }
 
 # ── Panorama 文本栈（pango/glib/harfbuzz/fontconfig/cairo）──
@@ -448,6 +441,12 @@ PY
                 fi
             fi
         fi
+        if [[ $name == glib ]]; then
+            local netlink_patch="$repo/android/patches/glib-ohos-netlink.patch"
+            if ! patch --batch --silent -R --dry-run -d "$srcdir" -p1 < "$netlink_patch" >/dev/null 2>&1; then
+                patch --batch -d "$srcdir" -p1 < "$netlink_patch"
+            fi
+        fi
         if [[ ! -f "$builddir/build.ninja" ]]; then
             rm -rf "$builddir"
             # shellcheck disable=SC2086
@@ -495,85 +494,53 @@ do_native() {
 
 # ── 8.6 产物回传 ─────────────────────────────────────────────
 do_stage() {
-    local win_repo=/mnt/e/csgo/CSGO-Source-Linux-20260928
-    mkdir -p "$win_repo/src/lib/public/androidarm64" "$win_repo/src/lib/common/androidarm64" \
-        "$win_repo/game/bin/androidarm64" "$win_repo/game/csgo/bin/androidarm64" \
-        "$win_repo/runtime/ohos"
-    rsync -a "$src/lib/public/androidarm64/" "$win_repo/src/lib/public/androidarm64/"
-    rsync -a "$src/lib/common/androidarm64/" "$win_repo/src/lib/common/androidarm64/"
-    rsync -a "$repo/game/bin/androidarm64/" "$win_repo/game/bin/androidarm64/"
-    rsync -a "$repo/game/csgo/bin/androidarm64/" "$win_repo/game/csgo/bin/androidarm64/"
-    rsync -a "$prefix/" "$win_repo/runtime/ohos/install/"
-    cp -p "$out/native-build/libmain.so" "$win_repo/runtime/ohos/install/lib/libmain.so"
-
-    # ---- HAP libs 组装 ----
-    local hap=/mnt/e/csgo/hap/entry/libs/arm64-v8a
-    mkdir -p "$hap"
-    local nm="$ANDROID_TOOLCHAIN/bin/llvm-nm"
-
-    # native 层入口（SDL3 dlopen("libmain.so")）
-    cp -p "$out/native-build/libmain.so" "$hap/"
-
-    # 引擎公共模块（game/bin）+ 游戏模块（game/csgo/bin）
-    for so in "$repo/game/bin/androidarm64/$config/"*.so "$repo/game/csgo/bin/androidarm64/$config/"*.so; do
-        [[ -f "$so" ]] && cp -p "$so" "$hap/"
+    local hap=${HAP_LIBS_DIR:-$root/hap/entry/libs/arm64-v8a}
+    local v8=${V8_RUNTIME_DIR:-$src/lib/common/androidarm64}
+    for lib in libv8.cr.so libv8_libbase.cr.so libv8_libplatform.cr.so; do
+        [[ -f "$v8/$lib" ]] || die "Missing real OHOS V8 runtime: $v8/$lib. Zero-return V8 stubs are not supported."
     done
-
-    # SDL3：client 的 DT_NEEDED 是 libSDL3.so.0（预编译 soname），两个名字都放
-    cp -p "$prefix/lib/libSDL3.so" "$hap/libSDL3.so"
-    cp -p "$prefix/lib/libSDL3.so" "$hap/libSDL3.so.0"
-
-    # DXVK：soname 是 "d3d9.so"（libmain/shaderapidx9 的 DT_NEEDED 用这个名字），
-    # 它还依赖拆分出来的 libdxvk_dxgi.so.0。都按运行期名字打包。
-    cp -p "$prefix/lib/libdxvk_d3d9.so" "$hap/d3d9.so"
-    cp -L -p /mnt/e/csgo/deps/dxvk-ohos-legacy/build.ohos/src/dxgi/libdxvk_dxgi.so.0 "$hap/" 2>/dev/null \
-        || die "libdxvk_dxgi.so.0 missing in dxvk build tree"
-    rm -f "$hap/libdxvk_d3d9.so"
-
-    # 依赖前缀的共享库（解引用符号链接；.a 不需要打包）
+    for input in "$out/native-build/libmain.so" "$prefix/lib/libSDL3.so" \
+                 "$prefix/lib/libdxvk_d3d9.so" "$prefix/lib/libdxvk_dxgi.so.0"; do
+        [[ -f "$input" ]] || die "Missing native output: $input"
+    done
+    mkdir -p "$hap"
+    cp -p "$out/native-build/libmain.so" "$hap/"
+    local found=0
+    for so in "$repo/game/bin/androidarm64/$config/"*.so "$repo/game/csgo/bin/androidarm64/$config/"*.so; do
+        [[ -f "$so" ]] || continue
+        cp -p "$so" "$hap/"
+        found=$((found + 1))
+    done
+    (( found >= 26 )) || die "Engine module set incomplete: found $found, expected at least 26"
+    cp -L -p "$prefix/lib/libSDL3.so" "$hap/libSDL3.so"
+    cp -L -p "$prefix/lib/libSDL3.so" "$hap/libSDL3.so.0"
+    cp -L -p "$prefix/lib/libdxvk_d3d9.so" "$hap/d3d9.so"
+    cp -L -p "$prefix/lib/libdxvk_dxgi.so.0" "$hap/"
     for so in "$prefix/lib/"*.so.* "$prefix/lib/"*.so; do
         [[ -f "$so" ]] || continue
         case "$(basename "$so")" in
-            libSDL3.so|libSDL3.so.0|libdxvk_d3d9.so) continue ;;
+            libSDL3.so|libSDL3.so.0|libdxvk_d3d9.so|libphonon.so) continue ;;
         esac
-        cp -L -p "$so" "$hap/" 2>/dev/null || true
+        cp -L -p "$so" "$hap/"
     done
-
-    # libc++_shared.so（引擎模块 DT_NEEDED）
-    cp -p "$OHOS_SDK/llvm/lib/aarch64-linux-ohos/libc++_shared.so" "$hap/"
-
-    # V8 零返回桩：树内的 libv8*.cr.so 是 bionic 预编译，
-    # musl 上无法加载。从其导出符号生成 mov x0,xzr;ret 桩（vscript 优雅降级，
-    # 地图 vscript 不可用；client_panorama 的 DT_NEEDED 可解析）。
-    local stub_dir="$out/v8-stub"
-    mkdir -p "$stub_dir"
     for lib in libv8.cr.so libv8_libbase.cr.so libv8_libplatform.cr.so; do
-        local prebuilt="$src/lib/common/androidarm64/$lib"
-        if [[ -f "$prebuilt" ]]; then
-            "$nm" -D --defined-only "$prebuilt" 2>/dev/null | awk '{print $3}' | grep -v '^$' > "$stub_dir/$lib.syms"
-            python3 - "$stub_dir/$lib.syms" "$stub_dir/$lib.stub.S" <<'PY'
-import sys
-syms, out = sys.argv[1], sys.argv[2]
-with open(syms) as f, open(out, 'w') as g:
-    g.write('.text\n')
-    for line in f:
-        name = line.strip()
-        if name and not name.startswith('#'):
-            g.write('.globl %s\n.type %s, %%function\n%s:\n  mov x0, xzr\n  ret\n' % (name, name, name))
-PY
-            $OHOS_CC -shared -fPIC -O2 -o "$hap/$lib" "$stub_dir/$lib.stub.S"
-        fi
+        cp -L -p "$v8/$lib" "$hap/$lib"
     done
-
-    log "Staged HAP libs ($(/mnt/e/csgo 2>/dev/null; ls "$hap" | wc -l) files):"
-    ls "$hap" | tr '\n' ' '; echo
+    cp -p "$OHOS_SDK/llvm/lib/aarch64-linux-ohos/libc++_shared.so" "$hap/"
+    python3 "$root/scripts/verify-ohos-libs.py" "$hap" --sdk "$OHOS_SDK"
+    log "Staged verified ARM64 OHOS libraries: $hap"
 }
+
+if [[ ${1:-all} != vpc ]]; then
+    [[ -x "$ANDROID_TOOLCHAIN/bin/clang" ]] || die "OHOS compiler missing: $ANDROID_TOOLCHAIN/bin/clang"
+    [[ -d "$OHOS_SDK/sysroot" ]] || die "OHOS sysroot missing: $OHOS_SDK/sysroot"
+fi
 
 case "${1:-all}" in
     vpc) do_vpc ;;
     foundation) do_foundation ;;
-    engine-deps) do_engine_deps ;;
-    text-stack) do_text_stack ;;
+    engine-deps) bash "$root/scripts/rebuild-ohos-dependencies.sh" small; bash "$root/scripts/rebuild-ohos-dependencies.sh" base ;;
+    text-stack) bash "$root/scripts/rebuild-ohos-dependencies.sh" textstack ;;
     engine) shift; do_engine "$@" ;;
     native) do_native ;;
     stage) do_stage ;;

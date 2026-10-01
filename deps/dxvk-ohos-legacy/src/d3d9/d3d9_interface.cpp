@@ -333,7 +333,13 @@ namespace dxvk {
     auto dxvkAdapter = adapter->GetDXVKAdapter();
 
     try {
-      auto dxvkDevice = dxvkAdapter->createDevice(m_instance, D3D9DeviceEx::GetDeviceFeatures(dxvkAdapter));
+      auto features = D3D9DeviceEx::GetDeviceFeatures(dxvkAdapter);
+      auto requiredCore = features.core.features;
+      // DxvkSampler disables anisotropy when the enabled device lacks it.
+      // Keep all other requested bits: adapter-advertised capabilities and
+      // eager meta pipelines do not have equivalent featureless fallbacks.
+      requiredCore.samplerAnisotropy = VK_FALSE;
+      auto dxvkDevice = dxvkAdapter->createDevice(m_instance, features, &requiredCore);
 
       auto* device = new D3D9DeviceEx(
         this,

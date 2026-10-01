@@ -3487,6 +3487,32 @@ IWaveData *CreateWaveDataMemory( CAudioSource &source )
 	return mem;
 }
 
+#if defined( __OHOS__ )
+// No ABI-compatible Steam Audio implementation is bundled for OHOS. Compile
+// the effect path out entirely: normal game/voice wave data retains ownership
+// and continues through the standard mixer, without a fake libphonon runtime.
+void StartPhononThread() {}
+void ShutdownPhononThread() {}
+
+IWaveData *CreateWaveDataHRTF( IWaveData *pData, hrtf_info_t * )
+{
+	return pData;
+}
+
+IWaveData *CreateWaveDataHRTFForVoice( IWaveData *pData, hrtf_info_t * )
+{
+	return pData;
+}
+
+bool RunHRTFEffect( const short *input, short *output, int nsamples, Vector, float, float )
+{
+	if ( !input || !output || nsamples < 0 )
+		return false;
+	// nsamples is the frame count; the caller supplies interleaved stereo.
+	memmove( output, input, static_cast<size_t>( nsamples ) * 2 * sizeof( short ) );
+	return true;
+}
+#else
 // set this to zero to revert to the previous scalar code
 #define PHONON_USE_SIMD 1
 
@@ -4449,3 +4475,5 @@ bool RunHRTFEffect( const short* input, short* output, int nsamples, Vector dir,
 
 	return true;
 }
+
+#endif // __OHOS__: standard audio mixer fallback

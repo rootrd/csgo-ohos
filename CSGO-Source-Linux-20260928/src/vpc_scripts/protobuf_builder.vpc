@@ -14,7 +14,7 @@ $CustomBuildStep "proto"
 	$CommandLine	"mkdir -p $GENERATED_PROTO_DIR 2> /dev/null;"  \
 					"$SRCDIR/devtools/bin/osx32/protoc --proto_path=$SRCDIR\thirdparty\protobuf-2.5.0\src --proto_path=$(InputDir) --proto_path=$SRCDIR\gcsdk --proto_path=$SRCDIR\game\shared --proto_path=$SRCDIR\game\shared\cstrike15 --proto_path=$SRCDIR\common --cpp_out=$GENERATED_PROTO_DIR $(InputPath)" [$OSXALL]
 	$CommandLine	"mkdir -p $GENERATED_PROTO_DIR 2> /dev/null;"  \
-					"$SRCDIR/devtools/bin/linux/protoc --proto_path=$SRCDIR\thirdparty\protobuf-2.5.0\src --proto_path=$(InputDir) --proto_path=$SRCDIR\gcsdk --proto_path=$SRCDIR\game\shared --proto_path=$SRCDIR\game\shared\cstrike15 --proto_path=$SRCDIR\common --cpp_out=$GENERATED_PROTO_DIR $(InputPath)" [$LINUX || $ANDROIDALL]
+					"${PROTOC:-$SRCDIR/devtools/bin/linux/protoc} --proto_path=$SRCDIR\thirdparty\protobuf-2.5.0\src --proto_path=$(InputDir) --proto_path=$SRCDIR\gcsdk --proto_path=$SRCDIR\game\shared --proto_path=$SRCDIR\game\shared\cstrike15 --proto_path=$SRCDIR\common --cpp_out=$GENERATED_PROTO_DIR $(InputPath)" [$LINUX || $ANDROIDALL]
 	$Outputs		"$GENERATED_PROTO_DIR\$(InputName).pb.cc;$GENERATED_PROTO_DIR\$(InputName).pb.h"
 }
 

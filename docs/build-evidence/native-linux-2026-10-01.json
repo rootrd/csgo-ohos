@@ -1,0 +1,416 @@
+{
+  "date": "2026-10-01",
+  "base_commit": "329735f8",
+  "build_mode": "release",
+  "abi": "arm64-v8a",
+  "version_name": "0.1.0",
+  "version_code": 1000062,
+  "sdk": {
+    "cli": "26.0.0.851",
+    "native": "26.0.0.105",
+    "api": 26,
+    "clang": "15.0.4",
+    "hvigor": "6.26.8"
+  },
+  "hap": {
+    "filename": "csgo-ohos-0.1.0-1000062-arm64-unsigned.hap",
+    "bytes": 142751955,
+    "sha256": "5d9f21722f9f837ba620d9b94c9742166e26fbe9254c45ddd2a76383b379b0a2",
+    "zip_integrity": "passed",
+    "signing": "unsigned",
+    "packaged_elf_audit": "passed",
+    "packaged_native_libraries": 92
+  },
+  "gates": {
+    "engine_all_targets": "passed",
+    "native_libmain": "passed",
+    "napi_libentry": "passed",
+    "dxvk_cross_build": "passed",
+    "sdl_cross_build": "passed",
+    "non_v8_source_dependencies": "passed",
+    "v8_arm64_cross_build": "passed",
+    "v8_host_functional_smoke": "passed_arm64_simulator",
+    "v8_arm64_functional_smoke": "linked_not_executed",
+    "panorama_host_guards": "passed",
+    "audio_host_fallback": "passed",
+    "dxvk_host_sanitizer_and_syntax": "passed",
+    "engine_phonon_symbols": "absent"
+  },
+  "limitations": [
+    "No authorized signing profile was available or used",
+    "No physical-device installation or launch test",
+    "V8 JIT executable-memory permission on retail HarmonyOS is unverified",
+    "Menu, map load, gameplay, rendering and actual device API availability are unverified",
+    "Official SDK libc++_shared.so uses 4KiB load alignment; full-package16KiB compatibility is unverified"
+  ],
+  "native_libraries": {
+    "libgirepository-2.0.so.0": {
+      "bytes": 201856,
+      "sha256": "2891b2eaef301f2588918e2ba3eef618188f480cf33c137bae0c3753df22b88a"
+    },
+    "libserver_client.so": {
+      "bytes": 20489856,
+      "sha256": "01d44ef46d2ed2797f74689dfeb0be58ceddf9034b8a4e2c529cc94e61595fb6"
+    },
+    "libvscript_client.so": {
+      "bytes": 658568,
+      "sha256": "a94b53deab04bbf1c85e3463b5034b87aae573794c8a7990e7f0691485632405"
+    },
+    "libgobject-2.0.so.0": {
+      "bytes": 333752,
+      "sha256": "104e64f537e8542dc712eee7303a5c3d479ecebc2b25d647975ef68420154360"
+    },
+    "libSDL3.so.0": {
+      "bytes": 1840568,
+      "sha256": "7eb5849f945f0da906e9f32bf025ed850a1d7e434d4b77add6ac99572adcee34"
+    },
+    "libscenefilecache_client.so": {
+      "bytes": 161832,
+      "sha256": "349722d734ffbc36a68767a01fab0c1db19c2e722d67d6280c2c15fbb25dc100"
+    },
+    "libvgui2_client.so": {
+      "bytes": 392728,
+      "sha256": "65a07ce4a73d4d52da92ab1c4a1ca1ab08ce068829163fc15c6f310c7445baa7"
+    },
+    "libfreetype.so": {
+      "bytes": 734536,
+      "sha256": "15478e9c343a22e22bfff170a81f50c42eab8498327ae8ea8ad42496581d63d8"
+    },
+    "libstudiorender_client.so": {
+      "bytes": 860976,
+      "sha256": "1580480dd38ba6a504172d81464fca3751f94d18ba670824c24fe70b81b7f837"
+    },
+    "libglib-2.0.so.0.8000.4": {
+      "bytes": 1926296,
+      "sha256": "d72964337c5294d0498932df57b8188d00e748296dab86fb01519bc47acfeb61"
+    },
+    "libharfbuzz-subset.so": {
+      "bytes": 1233128,
+      "sha256": "e166bf96c8324fab098a05af0f8f680cf1e023a97b86593a17e23ba1b40950d5"
+    },
+    "libglib-2.0.so": {
+      "bytes": 1926296,
+      "sha256": "d72964337c5294d0498932df57b8188d00e748296dab86fb01519bc47acfeb61"
+    },
+    "libgmodule-2.0.so": {
+      "bytes": 13096,
+      "sha256": "e49775b5a8158918664f770b278d38e0f18eb3730d7ed7c7a5e56432c9a02780"
+    },
+    "libgobject-2.0.so": {
+      "bytes": 333752,
+      "sha256": "104e64f537e8542dc712eee7303a5c3d479ecebc2b25d647975ef68420154360"
+    },
+    "libpangoft2-1.0.so.0": {
+      "bytes": 84928,
+      "sha256": "4d98878330e086fef017dd1a231461486d37d7579454897d186797d20e583f0c"
+    },
+    "libffi.so": {
+      "bytes": 86144,
+      "sha256": "a1a8b553b16a14285e5598508090e85e9d5ca6aeed3bc336a4e544079c6810bb"
+    },
+    "libharfbuzz-subset.so.0": {
+      "bytes": 1233128,
+      "sha256": "e166bf96c8324fab098a05af0f8f680cf1e023a97b86593a17e23ba1b40950d5"
+    },
+    "libdxvk_dxgi.so.0": {
+      "bytes": 1617840,
+      "sha256": "67ae58ab62821316aa4d55a2fa9e99a7ffcb82a3475fdaef2d174885b5617b49"
+    },
+    "libpanorama_client.so": {
+      "bytes": 5961584,
+      "sha256": "44dbcd74c5bd9aaea43bf90edc954416562faa8db2ec939411901ba89c943781"
+    },
+    "libcairo.so.2.11802.2": {
+      "bytes": 612200,
+      "sha256": "96b2e23c68f0d750980037d29ac9d48f332679ccfe16ad6abc44bf6d152c5557"
+    },
+    "libvguimatsurface_client.so": {
+      "bytes": 1550088,
+      "sha256": "69c2217e943fc4514d1134bf2f7277e6d6457b6b7d0d5a3a23e13cbba31dc6d2"
+    },
+    "libfribidi.so.0": {
+      "bytes": 113936,
+      "sha256": "78dc3b70000afd2e430ad3297926ee54298483e1c2fec2c30b649be09034d29a"
+    },
+    "libfreetype.so.6.20.6": {
+      "bytes": 734536,
+      "sha256": "15478e9c343a22e22bfff170a81f50c42eab8498327ae8ea8ad42496581d63d8"
+    },
+    "libharfbuzz.so.0.60850.0": {
+      "bytes": 1066168,
+      "sha256": "c62e9e6c9da1a3632a136d4aa429d4d4ad1fed966b1cb341874459adb65d3b09"
+    },
+    "libgobject-2.0.so.0.8000.4": {
+      "bytes": 333752,
+      "sha256": "104e64f537e8542dc712eee7303a5c3d479ecebc2b25d647975ef68420154360"
+    },
+    "libshaderapidx9_client.so": {
+      "bytes": 1172512,
+      "sha256": "b3fd8e19b92280da9dd00f635f68b3b7a2674d825856911da7e648996278243e"
+    },
+    "liblocalize_client.so": {
+      "bytes": 288376,
+      "sha256": "0921ac52c8d7845570c381d0b1424d3ca54c8d76ea4828e80ed8225d6cba78f2"
+    },
+    "libfreetype.so.6": {
+      "bytes": 734536,
+      "sha256": "15478e9c343a22e22bfff170a81f50c42eab8498327ae8ea8ad42496581d63d8"
+    },
+    "libpangocairo-1.0.so": {
+      "bytes": 51112,
+      "sha256": "5499f0b9ee763b7edd825631066d7e330f810b2951746bb1cdbea854e149adc4"
+    },
+    "libvstdlib_client.so": {
+      "bytes": 302480,
+      "sha256": "dc11f8e8f087dac83d5fae87c10165d23c0792e47ad1302f9986cdb3c44b6081"
+    },
+    "libstdshader_dbg_client.so": {
+      "bytes": 315944,
+      "sha256": "33bef430fb4a5cca99d75a1b6ea58fbc541af23ec14bb40b7ede5644ac6fe58e"
+    },
+    "libv8_libplatform.cr.so": {
+      "bytes": 60224,
+      "sha256": "06141356635ac1e74b2d993f20b5c483fe18eb09a576b54705c6ff1cb34ccb1c"
+    },
+    "libgio-2.0.so": {
+      "bytes": 1718752,
+      "sha256": "3240586ebe1f68da620580141e42183b7ae7e5ece8e1c5ae684fe6dd772d236e"
+    },
+    "libvphysics_client.so": {
+      "bytes": 1566624,
+      "sha256": "30e9e55bab389143192a7c5a3392d5ed1d6dec1734ba6afa75260627eba5d904"
+    },
+    "libdatacache_client.so": {
+      "bytes": 786240,
+      "sha256": "c9f2a4968ba09340a57eaf3bcef15101f915d888a063b14dc5158fbd2a30781a"
+    },
+    "libfilesystem_stdio_client.so": {
+      "bytes": 642272,
+      "sha256": "12ba77d6f9534c74143c2e6f73c782298a8df3ed09eaa4b808986c5d67a57537"
+    },
+    "libv8.cr.so": {
+      "bytes": 10804344,
+      "sha256": "0987a695a0b7bf53157e7038fd2c053b4061286612d4b45f1920a458b4c6832d"
+    },
+    "d3d9.so": {
+      "bytes": 2630304,
+      "sha256": "df4f34d97cdf5c1f8622ea7073ff22310db0a914a04ae6ea66443a3771a97138"
+    },
+    "libpangoft2-1.0.so.0.5400.0": {
+      "bytes": 84928,
+      "sha256": "4d98878330e086fef017dd1a231461486d37d7579454897d186797d20e583f0c"
+    },
+    "libgthread-2.0.so.0.8000.4": {
+      "bytes": 4800,
+      "sha256": "d75ae87b2abe5985a72507a65ff35f2b019c7281325c4d7f5b8b8b82a619d1a7"
+    },
+    "libffi.so.8": {
+      "bytes": 86144,
+      "sha256": "a1a8b553b16a14285e5598508090e85e9d5ca6aeed3bc336a4e544079c6810bb"
+    },
+    "libpangocairo-1.0.so.0": {
+      "bytes": 51112,
+      "sha256": "5499f0b9ee763b7edd825631066d7e330f810b2951746bb1cdbea854e149adc4"
+    },
+    "libexpat.so.1.8.10": {
+      "bytes": 154472,
+      "sha256": "4a8cfb42b70262a741b011da65d94739fa5215bcf8e6d9802506748eca359a61"
+    },
+    "libharfbuzz.so": {
+      "bytes": 1066168,
+      "sha256": "c62e9e6c9da1a3632a136d4aa429d4d4ad1fed966b1cb341874459adb65d3b09"
+    },
+    "libpango-1.0.so": {
+      "bytes": 410568,
+      "sha256": "be6f98207eaf7da1d04020b2625e348bca7102bc0f96ea057f7feeeb45827729"
+    },
+    "libtier0_client.so": {
+      "bytes": 144536,
+      "sha256": "62da0f34777ada6721a40f8ba0fffafee6b2a9b716c9bb7463271cdcd8a220e3"
+    },
+    "libentry.so": {
+      "bytes": 52832,
+      "sha256": "911ea2987ce5823890a8eea99c747afa279c9c98dd889ece0d1c3d07f43c46f2"
+    },
+    "libsoundemittersystem_client.so": {
+      "bytes": 297600,
+      "sha256": "a7bd40f337a023d40ffa8f3e8775f4ad7710a911b4ae2ef5489ec9315aea5375"
+    },
+    "libpixman-1.so.0.44.2": {
+      "bytes": 652376,
+      "sha256": "474d9d4ad07327fb76bc313f9af9600d54f391bbe52f7f8e62198d91b14f7c31"
+    },
+    "libpixman-1.so.0": {
+      "bytes": 652376,
+      "sha256": "474d9d4ad07327fb76bc313f9af9600d54f391bbe52f7f8e62198d91b14f7c31"
+    },
+    "libpango-1.0.so.0.5400.0": {
+      "bytes": 410568,
+      "sha256": "be6f98207eaf7da1d04020b2625e348bca7102bc0f96ea057f7feeeb45827729"
+    },
+    "liblauncher_client.so": {
+      "bytes": 339048,
+      "sha256": "78879ef0a7b3febce4e44118581917f0ddc8601d2b05907cc43e47b70c1d7c6a"
+    },
+    "libharfbuzz.so.0": {
+      "bytes": 1066168,
+      "sha256": "c62e9e6c9da1a3632a136d4aa429d4d4ad1fed966b1cb341874459adb65d3b09"
+    },
+    "libexpat.so": {
+      "bytes": 154472,
+      "sha256": "4a8cfb42b70262a741b011da65d94739fa5215bcf8e6d9802506748eca359a61"
+    },
+    "libfontconfig.so": {
+      "bytes": 285408,
+      "sha256": "0e875a4731023a12774fb2616a2a92e8bccc6c895fae605da73cc96d7b5dfbfd"
+    },
+    "libgthread-2.0.so": {
+      "bytes": 4800,
+      "sha256": "d75ae87b2abe5985a72507a65ff35f2b019c7281325c4d7f5b8b8b82a619d1a7"
+    },
+    "libcairo.so.2": {
+      "bytes": 612200,
+      "sha256": "96b2e23c68f0d750980037d29ac9d48f332679ccfe16ad6abc44bf6d152c5557"
+    },
+    "libc++_shared.so": {
+      "bytes": 1262504,
+      "sha256": "965803c3fe53e02452e4c0479ad13c88f166c04207d27e3c531161a7c75a6c17"
+    },
+    "libpanoramauiclient_client.so": {
+      "bytes": 2378440,
+      "sha256": "a4b1152662a1d27da9f55f4eefe6fc6c336746c582bf2ec40ccaff2c9f842958"
+    },
+    "libmain.so": {
+      "bytes": 917488,
+      "sha256": "c2a9b42355871c4c94f250110e7afabcefaead918ef915cc19abc93312d00e16"
+    },
+    "libgio-2.0.so.0.8000.4": {
+      "bytes": 1718752,
+      "sha256": "3240586ebe1f68da620580141e42183b7ae7e5ece8e1c5ae684fe6dd772d236e"
+    },
+    "libfribidi.so": {
+      "bytes": 113936,
+      "sha256": "78dc3b70000afd2e430ad3297926ee54298483e1c2fec2c30b649be09034d29a"
+    },
+    "libgmodule-2.0.so.0.8000.4": {
+      "bytes": 13096,
+      "sha256": "e49775b5a8158918664f770b278d38e0f18eb3730d7ed7c7a5e56432c9a02780"
+    },
+    "libinputsystem_client.so": {
+      "bytes": 282192,
+      "sha256": "cb3e43bb10a64fffec4509e8ba37a508b95c5c12ceec796dfc0e61ab44947b49"
+    },
+    "libgirepository-2.0.so.0.8000.4": {
+      "bytes": 201856,
+      "sha256": "2891b2eaef301f2588918e2ba3eef618188f480cf33c137bae0c3753df22b88a"
+    },
+    "libffi.so.8.1.4": {
+      "bytes": 86144,
+      "sha256": "a1a8b553b16a14285e5598508090e85e9d5ca6aeed3bc336a4e544079c6810bb"
+    },
+    "libpangocairo-1.0.so.0.5400.0": {
+      "bytes": 51112,
+      "sha256": "5499f0b9ee763b7edd825631066d7e330f810b2951746bb1cdbea854e149adc4"
+    },
+    "libstdshader_dx9_client.so": {
+      "bytes": 1288752,
+      "sha256": "1a2fb6e708ccbb39a1149a932c20ad6e08efefc1e30a9e89a3f651739ec40d1a"
+    },
+    "libgio-2.0.so.0": {
+      "bytes": 1718752,
+      "sha256": "3240586ebe1f68da620580141e42183b7ae7e5ece8e1c5ae684fe6dd772d236e"
+    },
+    "libclient_panorama_client.so": {
+      "bytes": 24635928,
+      "sha256": "bac731a70d046e536a1f1d035f1e90ac01381f98387a66c2cac1e317ffe35f6a"
+    },
+    "libexpat.so.1": {
+      "bytes": 154472,
+      "sha256": "4a8cfb42b70262a741b011da65d94739fa5215bcf8e6d9802506748eca359a61"
+    },
+    "libpanorama_text_pango_client.so": {
+      "bytes": 1185664,
+      "sha256": "63e70a6d38455725c0a0cec7708b18a996c0e9c0ca8b48e78a07e087d45c226b"
+    },
+    "libv8_libbase.cr.so": {
+      "bytes": 81096,
+      "sha256": "bf005019acb715312a16dddaa2550ae72770a915e6387a6264afe2b3b3f5d54b"
+    },
+    "libvaudio_minimp3_client.so": {
+      "bytes": 172968,
+      "sha256": "aa56b10c8a4e2895cb34eba06419bc53b8c3dbb6290b1663812e66c223830a0a"
+    },
+    "libfontconfig.so.1": {
+      "bytes": 285408,
+      "sha256": "0e875a4731023a12774fb2616a2a92e8bccc6c895fae605da73cc96d7b5dfbfd"
+    },
+    "libgmodule-2.0.so.0": {
+      "bytes": 13096,
+      "sha256": "e49775b5a8158918664f770b278d38e0f18eb3730d7ed7c7a5e56432c9a02780"
+    },
+    "libgirepository-2.0.so": {
+      "bytes": 201856,
+      "sha256": "2891b2eaef301f2588918e2ba3eef618188f480cf33c137bae0c3753df22b88a"
+    },
+    "libmaterialsystem_client.so": {
+      "bytes": 1445560,
+      "sha256": "a26376c620ecd2129c89caad23182c1730236f29fc80a4f45e2d331fa4695105"
+    },
+    "libgthread-2.0.so.0": {
+      "bytes": 4800,
+      "sha256": "d75ae87b2abe5985a72507a65ff35f2b019c7281325c4d7f5b8b8b82a619d1a7"
+    },
+    "libpixman-1.so": {
+      "bytes": 652376,
+      "sha256": "474d9d4ad07327fb76bc313f9af9600d54f391bbe52f7f8e62198d91b14f7c31"
+    },
+    "libharfbuzz-subset.so.0.60850.0": {
+      "bytes": 1233128,
+      "sha256": "e166bf96c8324fab098a05af0f8f680cf1e023a97b86593a17e23ba1b40950d5"
+    },
+    "libglib-2.0.so.0": {
+      "bytes": 1926296,
+      "sha256": "d72964337c5294d0498932df57b8188d00e748296dab86fb01519bc47acfeb61"
+    },
+    "libmatchmaking_client.so": {
+      "bytes": 653728,
+      "sha256": "40f08b5c67c64a0b67e59e3b2604a7b96587380f6f4a7d9e2721c6fc73e0f40a"
+    },
+    "libSDL3.so": {
+      "bytes": 1840568,
+      "sha256": "7eb5849f945f0da906e9f32bf025ed850a1d7e434d4b77add6ac99572adcee34"
+    },
+    "libpangoft2-1.0.so": {
+      "bytes": 84928,
+      "sha256": "4d98878330e086fef017dd1a231461486d37d7579454897d186797d20e583f0c"
+    },
+    "libcairo.so": {
+      "bytes": 612200,
+      "sha256": "96b2e23c68f0d750980037d29ac9d48f332679ccfe16ad6abc44bf6d152c5557"
+    },
+    "libfontconfig.so.1.14.0": {
+      "bytes": 285408,
+      "sha256": "0e875a4731023a12774fb2616a2a92e8bccc6c895fae605da73cc96d7b5dfbfd"
+    },
+    "libintl.so": {
+      "bytes": 5544,
+      "sha256": "2ccdf5bb479c125d916b40f35b35ff81faf0745a9b4a99ccf5947c1510470ef4"
+    },
+    "libintl.so.8": {
+      "bytes": 5544,
+      "sha256": "2ccdf5bb479c125d916b40f35b35ff81faf0745a9b4a99ccf5947c1510470ef4"
+    },
+    "libpango-1.0.so.0": {
+      "bytes": 410568,
+      "sha256": "be6f98207eaf7da1d04020b2625e348bca7102bc0f96ea057f7feeeb45827729"
+    },
+    "libfribidi.so.0.4.0": {
+      "bytes": 113936,
+      "sha256": "78dc3b70000afd2e430ad3297926ee54298483e1c2fec2c30b649be09034d29a"
+    },
+    "libengine_client.so": {
+      "bytes": 13505688,
+      "sha256": "2ff6d614ad22a522a9fbb69255f3c9fd10e9cda7d4c68abe779741d1b90c4aa8"
+    }
+  }
+}

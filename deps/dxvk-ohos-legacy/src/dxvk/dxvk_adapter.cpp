@@ -4,6 +4,7 @@
 #include <unordered_set>
 
 #include "dxvk_adapter.h"
+#include "dxvk_device_features.h"
 
 #include <cstdlib>
 #include <string>
@@ -271,7 +272,8 @@ namespace dxvk {
 
   Rc<DxvkDevice> DxvkAdapter::createDevice(
     const Rc<DxvkInstance>&   instance,
-          DxvkDeviceFeatures  enabledFeatures) {
+          DxvkDeviceFeatures  enabledFeatures,
+    const VkPhysicalDeviceFeatures* requiredCoreFeatures) {
     DxvkDeviceExtensions devExtensions;
 
     std::array<DxvkExt*, 33> devExtensionList = {{
@@ -351,93 +353,32 @@ namespace dxvk {
         VK_VERSION_MINOR(m_deviceInfo.core.properties.driverVersion), ".",
         VK_VERSION_PATCH(m_deviceInfo.core.properties.driverVersion)));
 
-    Logger::info("Enabled device extensions:");
-    this->logNameList(extensionNameList);
-    this->logFeatures(enabledFeatures);
+    // D3D9 may supply a smaller, audited baseline. Other frontends retain
+    // every requested core feature and do not use the OHOS compatibility retries.
+    const VkPhysicalDeviceFeatures requiredCore = requiredCoreFeatures
+      ? *requiredCoreFeatures : enabledFeatures.core.features;
 
-    // Create pNext chain for additional device features
-    enabledFeatures.core.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR;
-    enabledFeatures.core.pNext = nullptr;
-
-    enabledFeatures.shaderDrawParameters.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
-    enabledFeatures.shaderDrawParameters.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.shaderDrawParameters);
-
-    if (devExtensions.ext4444Formats) {
-      enabledFeatures.ext4444Formats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT;
-      enabledFeatures.ext4444Formats.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.ext4444Formats);
+    try {
+      std::optional<uint64_t> mask;
+      if (requiredCoreFeatures) {
+        std::ifstream config("dxvk.conf");
+        mask = readCoreFeatureMask(config);
+      }
+      enabledFeatures.core.features = selectCoreFeatures(enabledFeatures.core.features,
+        requiredCore, m_deviceFeatures.core.features, mask);
+      if (mask)
+        Logger::info(str::format("DxvkAdapter: applying csgoVkFeatureMask=0x",
+          std::hex, *mask, std::dec, " before device creation"));
+    } catch (const std::invalid_argument& error) {
+      throw DxvkError(error.what());
     }
 
-    if (devExtensions.extCustomBorderColor) {
-      enabledFeatures.extCustomBorderColor.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT;
-      enabledFeatures.extCustomBorderColor.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extCustomBorderColor);
-    }
+    // Query reset has no generally safe featureless substitute in this legacy
+    // renderer. Preserve the host feature even on platforms using command resets.
+    if (enabledFeatures.extHostQueryReset.hostQueryReset
+     && (!devExtensions.extHostQueryReset || !m_deviceFeatures.extHostQueryReset.hostQueryReset))
+      throw DxvkError("DxvkAdapter: hostQueryReset is required by this renderer but is unavailable");
 
-    if (devExtensions.extDepthClipEnable) {
-      enabledFeatures.extDepthClipEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_ENABLE_FEATURES_EXT;
-      enabledFeatures.extDepthClipEnable.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extDepthClipEnable);
-    }
-
-    if (devExtensions.extExtendedDynamicState) {
-      enabledFeatures.extExtendedDynamicState.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
-      enabledFeatures.extExtendedDynamicState.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extExtendedDynamicState);
-    }
-
-    if (devExtensions.extHostQueryReset) {
-      enabledFeatures.extHostQueryReset.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT;
-      enabledFeatures.extHostQueryReset.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extHostQueryReset);
-    }
-
-    if (devExtensions.extMemoryPriority) {
-      enabledFeatures.extMemoryPriority.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT;
-      enabledFeatures.extMemoryPriority.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extMemoryPriority);
-    }
-
-    if (devExtensions.extNonSeamlessCubeMap) {
-      enabledFeatures.extNonSeamlessCubeMap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_NON_SEAMLESS_CUBE_MAP_FEATURES_EXT;
-      enabledFeatures.extNonSeamlessCubeMap.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extNonSeamlessCubeMap);
-    }
-
-    if (devExtensions.extShaderDemoteToHelperInvocation) {
-      enabledFeatures.extShaderDemoteToHelperInvocation.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT;
-      enabledFeatures.extShaderDemoteToHelperInvocation.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extShaderDemoteToHelperInvocation);
-    }
-
-    if (devExtensions.extRobustness2) {
-      enabledFeatures.extRobustness2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
-      enabledFeatures.extRobustness2.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extRobustness2);
-    }
-
-    if (devExtensions.extTransformFeedback) {
-      enabledFeatures.extTransformFeedback.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT;
-      enabledFeatures.extTransformFeedback.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extTransformFeedback);
-    }
-
-    if (devExtensions.extVertexAttributeDivisor.revision() >= 3) {
-      enabledFeatures.extVertexAttributeDivisor.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT;
-      enabledFeatures.extVertexAttributeDivisor.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.extVertexAttributeDivisor);
-    }
-
-    if (devExtensions.khrBufferDeviceAddress) {
-      enabledFeatures.khrBufferDeviceAddress.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
-      enabledFeatures.khrBufferDeviceAddress.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.khrBufferDeviceAddress);
-    }
-
-    if (devExtensions.khrMaintenance4) {
-      enabledFeatures.khrMaintenance4.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES_KHR;
-      enabledFeatures.khrMaintenance4.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.khrMaintenance4);
-    }
-
-    if (devExtensions.khrTimelineSemaphore) {
-      enabledFeatures.khrTimelineSemaphore.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR;
-      enabledFeatures.khrTimelineSemaphore.pNext = std::exchange(enabledFeatures.core.pNext, &enabledFeatures.khrTimelineSemaphore);
-    }
-
-    // Report the desired overallocation behaviour to the driver
-    VkDeviceMemoryOverallocationCreateInfoAMD overallocInfo;
-    overallocInfo.sType = VK_STRUCTURE_TYPE_DEVICE_MEMORY_OVERALLOCATION_CREATE_INFO_AMD;
-    overallocInfo.pNext = nullptr;
-    overallocInfo.overallocationBehavior = VK_MEMORY_OVERALLOCATION_BEHAVIOR_ALLOWED_AMD;
-    
     // Create the requested queues
     float queuePriority = 1.0f;
     std::vector<VkDeviceQueueCreateInfo> queueInfos;
@@ -460,214 +401,102 @@ namespace dxvk {
       queueInfos.push_back(graphicsQueue);
     }
 
-    VkDeviceCreateInfo info;
-    info.sType                      = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    info.pNext                      = enabledFeatures.core.pNext;
-    info.flags                      = 0;
-    info.queueCreateInfoCount       = queueInfos.size();
-    info.pQueueCreateInfos          = queueInfos.data();
-    info.enabledLayerCount          = 0;
-    info.ppEnabledLayerNames        = nullptr;
-    info.enabledExtensionCount      = extensionNameList.count();
-    info.ppEnabledExtensionNames    = extensionNameList.names();
-    info.pEnabledFeatures           = &enabledFeatures.core.features;
-
-    if (devExtensions.amdMemoryOverallocationBehaviour)
-      overallocInfo.pNext = std::exchange(info.pNext, &overallocInfo);
-    
     VkDevice device = VK_NULL_HANDLE;
-    static VkPhysicalDeviceFeatures2 curatedFeatures2;
-    VkResult vr = m_vki->vkCreateDevice(m_handle, &info, nullptr, &device);
-
-    if (vr != VK_SUCCESS && enableCudaInterop) {
-      // Enabling certain Vulkan extensions can cause device creation to fail on
-      // Nvidia drivers if a certain kernel module isn't loaded, but we cannot know
-      // that in advance since the extensions are reported as supported anyway.
-      Logger::err("DxvkAdapter: Failed to create device, retrying without CUDA interop extensions");
-
-      extensionsEnabled.disableExtension(devExtensions.khrBufferDeviceAddress);
-      extensionsEnabled.disableExtension(devExtensions.nvxBinaryImport);
-      extensionsEnabled.disableExtension(devExtensions.nvxImageViewHandle);
-
-      enabledFeatures.khrBufferDeviceAddress.bufferDeviceAddress = VK_FALSE;
-
-      vk::removeStructFromPNextChain(&enabledFeatures.core.pNext,
-        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR);
-
-      extensionNameList = extensionsEnabled.toNameList();
-      info.enabledExtensionCount      = extensionNameList.count();
-      info.ppEnabledExtensionNames    = extensionNameList.names();
-
-      vr = m_vki->vkCreateDevice(m_handle, &info, nullptr, &device);
-    }
-
-    // OHOS/Maleoon workaround: the driver enumerates extensions and reports
-    // feature bits via properties2, but vkCreateDevice rejects the chain with
-    // VK_ERROR_FEATURE_NOT_PRESENT. Retry while disabling optional
-    // feature-coupled extension groups, most suspicious first.
-    struct FallbackStep {
-      const char* name;
-      std::initializer_list<DxvkExt*> exts;
-      std::initializer_list<VkStructureType> structs;
-    };
-    static const FallbackStep fallbackSteps[] = {
-      { "timeline_semaphore+maintenance4",
-        { &devExtensions.khrTimelineSemaphore, &devExtensions.khrMaintenance4 },
-        { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR,
-          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES_KHR } },
-      { "demote+robustness2+extended_dynamic_state",
-        { &devExtensions.extShaderDemoteToHelperInvocation,
-          &devExtensions.extRobustness2,
-          &devExtensions.extExtendedDynamicState },
-        { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT,
-          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
-          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT } },
-      { "xform_feedback+host_query_reset+renderpass2+ds_resolve+draw_indirect+va_divisor",
-        { &devExtensions.extTransformFeedback,
-          &devExtensions.extHostQueryReset,
-          &devExtensions.khrCreateRenderPass2,
-          &devExtensions.khrDepthStencilResolve,
-          &devExtensions.khrDrawIndirectCount,
-          &devExtensions.extVertexAttributeDivisor },
-        { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT,
-          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT,
-          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT } },
-      { "pchained_features_stripped", {}, {} },
-      { "swapchain_only", {}, {} },
-      { "swapchain_only_d3d9_curated_features", {}, {} },
-      { "swapchain_only_d3d9_curated_features2_pnext", {}, {} },
-      { "zero_features_full_extensions", {}, {} },
-      { "swapchain_only_zero_core_features", {}, {} },
-    };
-
-    // 记住扩展原始 mode，供「零 feature + 全扩展」步恢复
-    std::vector<DxvkExtMode> originalExtModes;
-    for (DxvkExt* ext : devExtensionList)
-      originalExtModes.push_back(ext->mode());
-
-    int fallbackStep = 0;
-    while (vr != VK_SUCCESS && fallbackStep < 9) {
-      const FallbackStep& fb = fallbackSteps[fallbackStep++];
-      Logger::err(str::format("DxvkAdapter: retrying device creation without ", fb.name));
-      for (DxvkExt* ext : fb.exts)
-        ext->setMode(DxvkExtMode::Disabled);
-      if (fallbackStep == 4) {
-        // 终极步：彻底剥离整条 pNext 扩展 feature 链（定位驱动拒绝的来源）
-        Logger::err("DxvkAdapter: stripping entire pNext feature chain");
-        enabledFeatures.core.pNext = nullptr;
-      }
-      if (fallbackStep == 5) {
-        Logger::err("DxvkAdapter: disabling ALL optional device extensions (swapchain only)");
-        for (DxvkExt* ext : devExtensionList)
-          if (ext != &devExtensions.khrSwapchain)
-            ext->setMode(DxvkExtMode::Disabled);
-      }
-      if (fallbackStep == 6) {
-        Logger::err("DxvkAdapter: curated D3D9 core feature set");
-        VkPhysicalDeviceFeatures f {};
-        f.robustBufferAccess = VK_TRUE;
-        f.fullDrawIndexUint32 = VK_TRUE;
-        f.independentBlend = VK_TRUE;
-        f.dualSrcBlend = VK_TRUE;
-        f.logicOp = VK_TRUE;
-        f.samplerAnisotropy = VK_TRUE;
-        f.depthClamp = VK_TRUE;
-        f.depthBiasClamp = VK_TRUE;
-        f.fillModeNonSolid = VK_TRUE;
-        f.multiViewport = VK_TRUE;
-        f.occlusionQueryPrecise = VK_TRUE;
-        f.textureCompressionBC = VK_TRUE;
-        f.shaderImageGatherExtended = VK_TRUE;
-        f.shaderStorageImageExtendedFormats = VK_TRUE;
-        enabledFeatures.core.features = f;
-      }
-      if (fallbackStep == 7) {
-        // Vulkan 1.1 传参：features 走 pNext 的 Features2，pEnabledFeatures 置空
-        Logger::err("DxvkAdapter: curated features via VkPhysicalDeviceFeatures2 pNext");
-        curatedFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        curatedFeatures2.pNext = nullptr;
-        curatedFeatures2.features = enabledFeatures.core.features;
-        info.pNext = &curatedFeatures2;
-        info.pEnabledFeatures = nullptr;
-      }
-      if (fallbackStep == 8) {
-        // 零 feature + 全扩展：扩展可能无辜（此前都是带 curated feature 被拒）
-        Logger::err("DxvkAdapter: zero features + restoring ALL extensions");
-        info.pNext = nullptr;
-        info.pEnabledFeatures = &enabledFeatures.core.features;
-        enabledFeatures.core.features = VkPhysicalDeviceFeatures{};
-        for (size_t i = 0; i < devExtensionList.size(); i++)
-          devExtensionList[i]->setMode(originalExtModes[i]);
-        // CUDA 互操作 trio 保持关（某些驱动此组合会拒）
-        devExtensions.nvxBinaryImport.setMode(DxvkExtMode::Disabled);
-        devExtensions.nvxImageViewHandle.setMode(DxvkExtMode::Disabled);
-        devExtensions.khrBufferDeviceAddress.setMode(DxvkExtMode::Disabled);
-        vk::removeStructFromPNextChain(&enabledFeatures.core.pNext,
-          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR);
-      }
-      if (fallbackStep == 9) {
-        Logger::err("DxvkAdapter: zeroing all core features (swapchain only fallback)");
-        info.pNext = nullptr;
-        info.pEnabledFeatures = &enabledFeatures.core.features;
-        enabledFeatures.core.features = VkPhysicalDeviceFeatures{};
-        for (DxvkExt* ext : devExtensionList)
-          if (ext != &devExtensions.khrSwapchain)
-            ext->setMode(DxvkExtMode::Disabled);
-        // dxvk.conf 可写覆盖：csgoVkFeatureMask = <uint32>，按
-        // VkPhysicalDeviceFeatures 位序强制置位（驱动零 feature 兜底后，
-        // 用最小集试探驱动到底接受什么）
-        std::ifstream conf("dxvk.conf");
-        std::string line;
-        while (std::getline(conf, line)) {
-          const auto pos = line.find("csgoVkFeatureMask");
-          if (pos == std::string::npos) continue;
-          const auto valPos = line.find('=', pos);
-          if (valPos == std::string::npos) continue;
-          uint32_t mask = 0;
-          try { mask = uint32_t(std::stoul(line.substr(valPos + 1), nullptr, 0)); } catch (...) { break; }
-          Logger::err(str::format("DxvkAdapter: applying csgoVkFeatureMask=0x", std::hex, mask, std::dec));
-          VkBool32* bits = reinterpret_cast<VkBool32*>(&enabledFeatures.core.features);
-          const VkBool32* queriedBits = reinterpret_cast<const VkBool32*>(&m_deviceFeatures.core.features);
-          constexpr size_t bitCount = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
-          for (size_t b = 0; b < bitCount && b < 32; b++)
-            if (mask & (1u << b)) bits[b] = queriedBits[b];
-          break;
-        }
-      }
-      for (VkStructureType sType : fb.structs)
-        vk::removeStructFromPNextChain(&enabledFeatures.core.pNext, sType);
+    bool useFeatures2 = false;
+    auto createDevice = [&] {
+      // Rebuild the extension revisions, features, and actual request together.
+      // No pointer in a retry or in the final snapshot refers to a previous call.
       extensionsEnabled = DxvkNameSet();
       if (!m_deviceExtensions.enableExtensions(
             devExtensionList.size(), devExtensionList.data(), extensionsEnabled))
-        break;  // a required extension vanished - bail out to the error below
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
       extensionsEnabled.merge(m_extraExtensions);
       extensionNameList = extensionsEnabled.toNameList();
-      std::vector<const char*> filteredNames;
-      for (uint32_t i = 0; i < extensionNameList.count(); i++) {
-        const char* name = extensionNameList.names()[i];
-        bool skipped = false;
-        for (DxvkExt* ext : fb.exts) {
-          if (!std::strcmp(name, ext->name())) { skipped = true; break; }
-        }
-        if (!skipped) filteredNames.push_back(name);
-      }
-      info.enabledExtensionCount   = filteredNames.size();
-      info.ppEnabledExtensionNames = filteredNames.data();
-      vr = m_vki->vkCreateDevice(m_handle, &info, nullptr, &device);
-      Logger::err(str::format("DxvkAdapter: retry step ", fallbackStep, " -> VkResult=", vr));
+
+      VkDeviceMemoryOverallocationCreateInfoAMD overallocInfo;
+      auto info = deviceFeatureRequest(enabledFeatures, devExtensions, overallocInfo, useFeatures2);
+      info.queueCreateInfoCount = queueInfos.size();
+      info.pQueueCreateInfos = queueInfos.data();
+      info.enabledExtensionCount = extensionNameList.count();
+      info.ppEnabledExtensionNames = extensionNameList.names();
+      Logger::info("DxvkAdapter: requested device extensions:");
+      this->logNameList(extensionNameList);
+      this->logFeatures(enabledFeatures);
+      device = VK_NULL_HANDLE;
+      const auto result = m_vki->vkCreateDevice(m_handle, &info, nullptr, &device);
+      Logger::info(str::format("DxvkAdapter: vkCreateDevice -> VkResult=", result));
+      return result;
+    };
+    auto disableExtension = [&](DxvkExt& extension) {
+      // Extensions required by the frontend (e.g. external interop) must not
+      // silently reappear through m_extraExtensions or lose feature state.
+      if (extension.mode() == DxvkExtMode::Required || m_extraExtensions.supports(extension.name()))
+        return;
+      extension.setMode(DxvkExtMode::Disabled);
+      extension.disable();
+    };
+
+    VkResult vr = createDevice();
+    // Preserve the existing NVIDIA recovery, whose missing-module failure
+    // can be reported as an initialization error rather than a feature error.
+    if (shouldRetryCudaInterop(vr, enableCudaInterop)) {
+      Logger::warn("DxvkAdapter: retrying without optional CUDA interop");
+      disableExtension(devExtensions.khrBufferDeviceAddress);
+      disableExtension(devExtensions.nvxBinaryImport);
+      disableExtension(devExtensions.nvxImageViewHandle);
+      vr = createDevice();
     }
 
-    // OHOS/Maleoon 终极诊断：pNext 全剥仍 FEATURE_NOT_PRESENT → 逐位二分
-    // core features（驱动 properties2 报支持但 vkCreateDevice 拒绝 = 虚报）。
-    // 从全零开始逐位恢复 queried 值，被拒的位打日志并禁用，直到建出设备。
-    if (vr != VK_SUCCESS) {
-      Logger::err(str::format("DxvkAdapter: Failed to create device: VkResult=", vr,
-        ", extensionCount=", extensionNameList.count()));
-      for (uint32_t i = 0; i < extensionNameList.count(); i++)
-        Logger::err(str::format("DxvkAdapter:   req[", i, "] = ", extensionNameList.names()[i]));
-      throw DxvkError("DxvkAdapter: Failed to create device");
+    // These D3D9 paths have existing fallbacks based on enabled device features.
+    // Do not strip all extensions: hostQueryReset, 4444 formats, image format
+    // lists and mirror clamp, among others, still have live renderer consumers.
+    // This array is local: its pointers must never outlive devExtensions.
+    struct FallbackStep {
+      const char* name;
+      std::initializer_list<DxvkExt*> extensions;
+    };
+    const FallbackStep fallbackSteps[] = {
+      { "timeline semaphore and maintenance4",
+        { &devExtensions.khrTimelineSemaphore, &devExtensions.khrMaintenance4 } },
+      { "demote, robustness2 and extended dynamic state",
+        { &devExtensions.extShaderDemoteToHelperInvocation,
+          &devExtensions.extRobustness2, &devExtensions.extExtendedDynamicState } },
+      { "unused D3D9 transform feedback",
+        { &devExtensions.extTransformFeedback } },
+    };
+    if (requiredCoreFeatures) {
+      for (const auto& step : fallbackSteps) {
+        if (!isFeatureNegotiationFailure(vr)) break;
+        Logger::warn(str::format("DxvkAdapter: retrying without optional ", step.name));
+        for (auto* extension : step.extensions)
+          disableExtension(*extension);
+        vr = createDevice();
+      }
+      if (isFeatureNegotiationFailure(vr)) {
+        Logger::warn("DxvkAdapter: retrying with required D3D9 core features (anisotropy disabled)");
+        enabledFeatures.core.features = requiredCore;
+        vr = createDevice();
+      }
+      if (isFeatureNegotiationFailure(vr)) {
+        Logger::warn("DxvkAdapter: retrying the same required features via VkPhysicalDeviceFeatures2");
+        useFeatures2 = true;
+        vr = createDevice();
+      }
     }
-    
+
+    if (vr != VK_SUCCESS) {
+      Logger::err(str::format("DxvkAdapter: device creation failed: VkResult=", vr,
+        ". Required rendering features were retained; a zero-feature device is not a D3D9 renderer."));
+      if (vr == VK_ERROR_FEATURE_NOT_PRESENT)
+        Logger::err(str::format("DxvkAdapter: driver rejected this required core contract: ",
+          missingCoreFeatures(requiredCore, VkPhysicalDeviceFeatures{}),
+          ". Capture this log and test these features in a fresh process; update the Vulkan driver or implement a verified renderer fallback."));
+      throw DxvkError(str::format("DxvkAdapter: Failed to create a render-capable device (VkResult=", vr, ")"));
+    }
+
+    Logger::info("DxvkAdapter: actual enabled device features:");
+    this->logFeatures(enabledFeatures);
+    clearDeviceFeatureChain(enabledFeatures);
     Rc<DxvkDevice> result = new DxvkDevice(instance, this,
       new vk::DeviceFn(true, m_vki->instance(), device),
       devExtensions, enabledFeatures);

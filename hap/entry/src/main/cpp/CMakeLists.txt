@@ -12,3 +12,5 @@ include_directories(${NATIVEAPP_ROOT_PATH}
 
 add_library(entry SHARED napi_init.cpp)
 target_link_libraries(entry PUBLIC libace_napi.z.so libhilog_ndk.z.so)
+# Align this entry module for 16 KiB pages; SDK runtime alignment is SDK-specific.
+set_property(TARGET entry APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384")

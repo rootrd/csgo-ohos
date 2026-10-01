@@ -30,7 +30,7 @@ $Project "appframework"
 {
 	$Folder	"Source Files"
 	{
-		$File	"AppSystemGroup.cpp"
+		$File	"appsystemgroup.cpp"
 		$File	"$SRCDIR\public\filesystem_init.cpp"
 		$File	"VguiMatSysApp.cpp"	[$WINDOWS]
 		$File	"matsysapp.cpp"		[$WINDOWS]

@@ -1496,9 +1496,6 @@ CUIEngine::CUIEngine()  :
 		AUTO_LOCK( s_MutexGlobalInit );
 		if( !s_bGlobalInitDone )
 		{
-			// This stuff we do once per process period.
-			s_bGlobalInitDone = true;
-
 			// early startup stuff so we can load either 10' or 2' startup UIs
 			DeclareCurrentThreadIsMainThread();
 
@@ -1515,18 +1512,42 @@ CUIEngine::CUIEngine()  :
 			nV8ThreadPoolSize = CommandLine()->ParmValue( "-pv8poolthreads", 1 );
 #endif
 			
+			// A loadable symbol-only V8 stub is not a JavaScript runtime. Stop
+			// before entering V8 scopes rather than crashing on a null isolate
+			// later or allowing a non-functional Panorama menu to appear ready.
+			const char* v8version = v8::V8::GetVersion();
+			if ( !v8version || !v8version[0] )
+			{
+				Plat_FatalError( "Panorama requires a functional V8 runtime; GetVersion returned no version. Refusing to start with V8 stubs.\n" );
+			}
+
 			// bugbug jmccaskey - do these things once per process, not per UI engine, or even once per panorama.dll load!
 			v8::Platform* platform = v8::platform::CreateDefaultPlatform( nV8ThreadPoolSize );
+			if ( !platform )
+			{
+				Plat_FatalError( "Panorama V8 platform creation failed. Check the native V8 runtime and its ABI.\n" );
+			}
+#if defined( POSIX )
+			const char* pV8ICUDataFile = "bin/icudtl.dat";
+#else
+			const char* pV8ICUDataFile = "bin\\icudtl.dat";
+#endif
+			if ( !v8::V8::InitializeICU( pV8ICUDataFile ) )
+			{
+				Plat_FatalError( "Panorama V8 ICU initialization failed. Check the ICU data file required by this V8 build.\n" );
+			}
 			v8::V8::InitializePlatform( platform );
-			v8::V8::Initialize();
+			if ( !v8::V8::Initialize() )
+			{
+				Plat_FatalError( "Panorama V8 initialization failed. JavaScript is required for the game UI.\n" );
+			}
 
-			v8::V8::InitializeICU( "bin\\icudtl.dat" );
 			//v8::V8::SetFlagsFromCommandLine( &argc, argv, true );
 
-			const char* v8version = v8::V8::GetVersion();
 			Msg("V8 Version: %s\n", v8version);
 
 			PushContextPanel( nullptr );
+			s_bGlobalInitDone = true;
 		}
 
 		++s_nUIEnginesActive;
@@ -1625,6 +1646,10 @@ CUIEngine::CUIEngine()  :
 #endif
 
 	m_pV8Isolate = v8::Isolate::New( createParams );
+	if ( !m_pV8Isolate )
+	{
+		Plat_FatalError( "Panorama V8 isolate creation failed. Check runtime compatibility and executable-memory support; Panorama cannot run without JavaScript.\n" );
+	}
 	v8::Isolate::Scope isolate_scope( m_pV8Isolate );
 	v8::V8::SetFatalErrorHandler( &V8FatalErrorHandler );
 	m_bDoV8GarbageCollect = false;
@@ -5004,6 +5029,10 @@ void CUIEngine::InitializePanoramaContext( v8::Persistent<v8::Context> *pPersist
 	{
 		v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New( m_pV8Isolate );
 		v8::Handle<v8::ObjectTemplate> p = v8::ObjectTemplate::New( m_pV8Isolate );
+		if ( global.IsEmpty() || p.IsEmpty() )
+		{
+			Plat_FatalError( "Panorama V8 object-template creation failed.\n" );
+		}
 		int nScope = -1;
 
 		if ( m_vecRegisterJSScopes.Count() == 0 )
@@ -5076,6 +5105,10 @@ void CUIEngine::InitializePanoramaContext( v8::Persistent<v8::Context> *pPersist
 
 	v8::Handle<v8::ObjectTemplate> global = v8::Local<v8::ObjectTemplate>::New( m_pV8Isolate, m_V8GlobalTemplate );
 	v8::Handle<v8::Context> handle_context = v8::Context::New( m_pV8Isolate, NULL, global );
+	if ( handle_context.IsEmpty() )
+	{
+		Plat_FatalError( "Panorama V8 context creation failed. JavaScript is required for the game UI.\n" );
+	}
 	
 	v8::Context::Scope context_scope( handle_context );
 

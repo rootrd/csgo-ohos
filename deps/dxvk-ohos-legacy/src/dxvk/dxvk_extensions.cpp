@@ -37,6 +37,8 @@ namespace dxvk {
 
     for (uint32_t i = 0; i < numExtensions; i++) {
       DxvkExt* ext = ppExtensions[i];
+      // Re-enabling a list must not retain revisions from an earlier attempt.
+      ext->disable();
 
       if (ext->mode() == DxvkExtMode::Disabled)
         continue;
