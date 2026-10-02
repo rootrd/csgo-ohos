@@ -1,0 +1,28 @@
+<root>
+	<styles>
+		<include src="file://{resources}/styles/hud/hud.css" />
+		<include src="file://{resources}/styles/csno_touch_hud.css" />
+	</styles>
+	<scripts>
+		<include src="file://{resources}/scripts/csno_touch_hud.js" />
+	</scripts>
+	<!-- OHOS 移植：CSNO 包不含原版 hud.xml（桌面布局被移除），而引擎
+	     CCSGO_Hud 硬要求下列子面板。手写最小实现：保留 CSNO 触控注入，
+	     面板类型全部用引擎已注册的。 -->
+	<CSGOHud hittest="false">
+		<CCSGO_HudChat id="HudChat" />
+		<Panel id="CsnoTouchHud" class="csno-hud-root" hittest="false" hittestchildren="false" />
+		<Panel id="HudTopLeft" hittest="false" />
+		<Panel id="HudTopCenter" hittest="false" />
+		<Panel id="HudTopRight" hittest="false" />
+		<Panel id="HudBottomRight" hittest="false" />
+		<Panel id="HudBottomCenter" hittest="false" />
+		<Panel id="HudLowerLeft" hittest="false" />
+		<CCSGO_HudRadio id="HudRadio" />
+		<CCSGO_HudTeamCounter id="HudTeamCounter" />
+		<CCSGO_HudBlurTarget id="HudBlur" />
+		<CCSGO_PopupManager id="PopupManager" />
+		<CCSGO_UI_TooltipManager id="TooltipManager" />
+		<CUI_ContextMenuManager id="ContextMenuManager" />
+	</CSGOHud>
+</root>

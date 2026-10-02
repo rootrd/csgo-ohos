@@ -148,6 +148,10 @@ stage_resources() {
     if [[ -d "$overlay/csgo" ]]; then
         cp -R "$overlay/csgo/." "$rawfile/csgo/csgo/"
     fi
+    # OHOS：资源包的 panorama/code.pbin 是 CS2 时代布局（CCSGOTabletPanoLayer
+    # 等本引擎未注册的类），pbin 优先级又高于散装文件 → HUD 必崩。
+    # DEVELOPMENT_ONLY 构建走散装布局，pbin 一律剥离。
+    rm -f "$rawfile/csgo/csgo/panorama/code.pbin"
     [[ -f "$overlay/dxvk.conf" ]] && cp -p "$overlay/dxvk.conf" "$rawfile/csgo/dxvk.conf"
     [[ -f "$overlay/steam_appid.txt" ]] && cp -p "$overlay/steam_appid.txt" "$rawfile/csgo/"
 
