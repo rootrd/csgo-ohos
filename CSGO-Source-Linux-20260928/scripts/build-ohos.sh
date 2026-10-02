@@ -154,10 +154,9 @@ stage_resources() {
     rm -f "$rawfile/csgo/csgo/panorama/code.pbin"
     [[ -f "$overlay/dxvk.conf" ]] && cp -p "$overlay/dxvk.conf" "$rawfile/csgo/dxvk.conf"
     [[ -f "$overlay/steam_appid.txt" ]] && cp -p "$overlay/steam_appid.txt" "$rawfile/csgo/"
-    # 联调命令注入（| 分隔，napi 读 files/cmdline.txt → CSGO_OHOS_ARGS）：
-    # seed 把 rawfile/csgo 解到 files/csgo，但 napi 读的是 files/cmdline.txt（上一级），
-    # EntryAbility 的种子只解 csgo/ 子树——直接放 rawfile/cmdline.txt 由 ArkTS 解包到 files/
-    [[ -f "$overlay/cmdline.txt" ]] && cp -p "$overlay/cmdline.txt" "$rawfile/cmdline.txt"
+    # 联调命令注入（| 分隔，libmain 引擎启动时读 csgo/cmdline.txt 追加命令行）：
+    # 放 csgo/ 子树内（沙箱 fopen 拒绝 ".." 路径分量），随 boot 覆盖进 rawfile
+    [[ -f "$overlay/csgo/cmdline.txt" ]] && cp -p "$overlay/csgo/cmdline.txt" "$rawfile/csgo/csgo/cmdline.txt"
 
     # fontconfig OHOS 专用配置：默认 fonts.conf 会扫 /system/fonts 等系统目录，
     # 沙箱里 FcFontList 打转。只给游戏自带字体目录 + 可写缓存目录。

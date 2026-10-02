@@ -149,10 +149,27 @@ int runSourceEngine(int argc, char **argv, const char *resourceRoot, const char 
         "-nosteam", "-insecure", "-novid",
         "-w", std::to_string(width), "-h", std::to_string(height)
     };
-    // 联调注入通道：CSGO_OHOS_ARGS 以 | 分隔追加引擎命令行（如
-    // "+map|de_dust2|+sv_lan|1"），napi/ArkTS 或 hdc setenv 后无需重编即可
-    // 注入 +map 等启动命令（引擎 argv 无法从外部控制）。
-    if (const char* extraArgs = getenv("CSGO_OHOS_ARGS")) {
+    // 联调注入通道（首选）：直接读 csgo/cmdline.txt（| 分隔）。沙箱 fopen 拒绝
+    // ".." 路径分量，故文件放 csgo/ 子树内。文件读取在本模块已验证可行；
+    // napi 的 setenv 实测不跨库可见（libentry 与 libmain 的 env 隔离），
+    // 环境变量通道保留为后备。
+    const char* extraArgs = nullptr;
+    std::string cmdFilePath = std::string(resourceRoot) + "/csgo/cmdline.txt";
+    {
+        FILE* f = fopen(cmdFilePath.c_str(), "r");
+        if (f) {
+            static char cmdBuf[1024] = {0};
+            size_t n = fread(cmdBuf, 1, sizeof(cmdBuf) - 1, f);
+            fclose(f);
+            while (n && (cmdBuf[n-1] == '\n' || cmdBuf[n-1] == '\r')) cmdBuf[--n] = 0;
+            if (n) extraArgs = cmdBuf;
+        }
+    }
+    if (!extraArgs)
+        extraArgs = getenv("CSGO_OHOS_ARGS");
+    fprintf(stderr, "CSGO_TRACE: inject args=%s (file=%s)\n",
+        extraArgs ? extraArgs : "(none)", cmdFilePath.c_str());
+    if (extraArgs) {
         std::string token;
         for (const char* p = extraArgs; ; ++p) {
             if (*p == '|' || *p == '\0') {

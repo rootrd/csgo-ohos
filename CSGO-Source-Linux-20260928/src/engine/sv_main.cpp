@@ -3054,6 +3054,7 @@ This is called at the start of each level
 */
 bool CGameServer::SpawnServer( char *mapname, char * mapGroupName, char *startspot )
 {
+	fprintf( stderr, "CSGO_TRACE: SpawnServer enter %s\n", mapname );
     int		i;
     char	szDllName[MAX_QPATH];
 

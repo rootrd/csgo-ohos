@@ -140,6 +140,7 @@ void HostState_RunGameInit()
 //-----------------------------------------------------------------------------
 void HostState_NewGame( char const *pMapName, bool remember_location, bool background, bool bSplitScreenConnect )
 {
+	fprintf( stderr, "CSGO_TRACE: HostState_NewGame body enter %s\n", pMapName );
 	char szMapName[_MAX_PATH];
 	Q_StripExtension( pMapName, szMapName, sizeof(szMapName) );
 	Q_strncpy( g_HostState.m_levelName, szMapName, sizeof( g_HostState.m_levelName ) );
@@ -654,17 +655,22 @@ void CHostState::State_Run( float frameTime )
 
 void CHostState::State_GameShutdown()
 {
+	fprintf( stderr, "CSGO_TRACE: State_GameShutdown enter\n" );
 	materials->OnDebugEvent( "CHostState::State_GameShutdown" );
 	if ( serverGameDLL )
 	{
+		fprintf( stderr, "CSGO_TRACE: GS NotifyOfLevelChange\n" );
 		Steam3Server().NotifyOfLevelChange();
+		fprintf( stderr, "CSGO_TRACE: GS LevelShutdown\n" );
 		g_pServerPluginHandler->LevelShutdown();
 #if !defined(DEDICATED)
 		audiosourcecache->LevelShutdown();
 #endif
 	}
+	fprintf( stderr, "CSGO_TRACE: GS GameShutdown calling\n" );
 
 	GameShutdown();
+	fprintf( stderr, "CSGO_TRACE: GS GameShutdown done\n" );
 #ifndef DEDICATED
 	saverestore->ClearSaveDir();
 #endif
@@ -781,11 +787,14 @@ void CHostState::FrameUpdate( float time )
 		int oldState = m_currentState;
 
 		// execute the current state (and transition to the next state if not in HS_RUN)
+		fprintf( stderr, "CSGO_TRACE: HostStateFrame state=%d\n", m_currentState );
 		switch( m_currentState )
 		{
 		case HS_NEW_GAME:
 			g_pMDLCache->BeginMapLoad();
+			fprintf( stderr, "CSGO_TRACE: State_NewGame calling\n" );
 			State_NewGame();
+			fprintf( stderr, "CSGO_TRACE: State_NewGame done\n" );
 			break;
 		case HS_LOAD_GAME:
 			g_pMDLCache->BeginMapLoad();

@@ -1269,6 +1269,7 @@ static bool Host_Map_Helper_FuzzyName( const CCommand &args, char *name, size_t 
 void Host_Changelevel_f( const CCommand &args );
 void Host_Map_Helper( const CCommand &args, EMapFlags flags )
 {
+	fprintf( stderr, "CSGO_TRACE: Host_Map_Helper enter\n" );
 	char	name[MAX_QPATH];
 
 	if (args.ArgC() < 2)
@@ -1305,6 +1306,7 @@ void Host_Map_Helper( const CCommand &args, EMapFlags flags )
 		}
 	}
 
+	fprintf( stderr, "CSGO_TRACE: Map_IsValid OK %s\n", ppath );
 	GetPlatformMapPath( ppath, name, sizeof( name ) );
 
 	// If I was in edit mode reload config file
@@ -1351,8 +1353,10 @@ void Host_Map_Helper( const CCommand &args, EMapFlags flags )
 #endif
 	{
 		Host_Disconnect( false );	// stop old game
+		fprintf( stderr, "CSGO_TRACE: HostState_NewGame calling %s\n", name );
 
 		HostState_NewGame( name, false, bBackground, bSplitScreenConnect );
+		fprintf( stderr, "CSGO_TRACE: HostState_NewGame done %s\n", name );
 	}
 
 	if (args.ArgC() == 10)
