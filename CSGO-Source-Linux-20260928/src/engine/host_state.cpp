@@ -526,11 +526,14 @@ void CHostState::State_ChangeLevelMP()
 
 void CHostState::State_ChangeLevelSP()
 {
+	fprintf( stderr, "CSGO_TRACE: State_ChangeLevelSP enter valid=%d level=%s\n", (int)Host_ValidGame(), m_levelName );
 	materials->OnDebugEvent( "CHostState::State_ChangeLevelSP" );
 	if ( Host_ValidGame() )
 	{
+		fprintf( stderr, "CSGO_TRACE: ChangeLevelSP Map_IsValid %s\n", m_levelName );
 		if ( modelloader->Map_IsValid( m_levelName ) )
 		{
+			fprintf( stderr, "CSGO_TRACE: Host_Changelevel calling\n" );
 			Host_Changelevel( true, m_levelName, m_mapGroupName, m_landmarkName );
 			SetState( HS_RUN, true );
 			return;
@@ -814,9 +817,12 @@ void CHostState::FrameUpdate( float time )
 			State_Run( time );
 			break;
 		case HS_GAME_SHUTDOWN:
+			fprintf( stderr, "CSGO_TRACE: State_GameShutdown enter (frame)\n" );
 			State_GameShutdown();
+			fprintf( stderr, "CSGO_TRACE: State_GameShutdown done\n" );
 			break;
 		case HS_SHUTDOWN:
+			fprintf( stderr, "CSGO_TRACE: State_Shutdown enter\n" );
 			State_Shutdown();
 			break;
 		case HS_RESTART:

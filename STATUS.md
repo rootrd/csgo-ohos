@@ -23,20 +23,28 @@
 | 17 | **DXVK vkCreateDevice 全拒**（FEATURE_NOT_PRESENT） | **Maleoon 驱动 bug：properties2 报支持的 core feature，vkCreateDevice 一律拒绝**；任何非零 feature（含 Features2-pNext 传法）都 FEATURE_NOT_PRESENT；成功后再创建必 SIGSEGV | dxvk_adapter.cpp 加 **8 步回退梯子**（禁扩展组→剥 pNext→swapchain-only→curated→curated-F2→零 feature），VkResult+扩展清单诊断日志 |
 | 18 | Presenter "window not drawable" | autoRegisterFromSdl 查询的属性名错误（`SDL.prop.window.openharmony.window.pointer`，SDL 3.0.5 实名 `SDL.window.openharmony.window`） | 修正属性名（保留旧名 fallback） |
 
-### 当前状态（精确，2026-10-01 03:4x）
+### 当前状态（精确，2026-10-02 下午）
 
-- **设备可建（最终配置）**：**零 core feature + 全部扩展**（step-8 路径，CUDA trio 除外）
-  —— 证明扩展无辜；掩码机制保留（csgoVkFeatureMask 可叠加特定位，robust+BC、12 位集已证被接受）
-- **swapchain 工作**：RGBA8、MAILBOX、4 image、1276x2848 buffer（surface 2848x1045）
-- **引擎已冲过纹理阶段**（本轮无 SIGSEGV、无纹理警告），推进到：
-  `GameTypes 解析 ✓ → "V8 Version: (null)" → 进程退出`
-  = **V8 桩（1.4MB 零返回库）初始化即死**，属 Panorama JS 引擎路径
-- **下一堵墙（V8 桩）——目标已锁定**：
-  1. 崩溃点已精确定位：uiengine.cpp Init → `InitializePanoramaContext` → 全局 JS Context 创建（null isolate 上 `.Get()` 解引用）；V8 触点 162 处/6 文件——逐点守卫手术不划算
-  2. **治本方案：真 V8 移植**——panorama 头文件是 **v8 5.8.283**（2017 版，`src/thirdparty/v8/include/`），桩库（1.4MB/6912 符号零返回 thunk）就是按这套头生成的 → **用相同 ABI 构建真 libv5.8 monolith（musl/aarch64）可直接替换**，无 API 适配
-  3. v8 5.8 musl 构建路线：depot_tools + GN + ninja，OHOS sysroot（musl）作 target_sysroot，参考 Alpine/musl 补丁（execinfo 等小补丁）；产物对齐 stub 的符号表验证
-  4. 临时缓解（已装机）：uiengine.cpp Isolate 段判空守卫（trace30-v8stub.py）——引擎可过 Init 的 Isolate 段，死点后移到 InitializePanoramaContext
-- **遗留观察**：mask 0x4C398F（12 feature）设备也可创建（robust+BC 已证接受），驱动对 feature 的拒绝是位组合相关的真集问题——后续可逐位二分出「真实支持集」恢复 BC 之外的更多能力
+**主菜单已激活稳定运行**（真 V8 5.8.283 + BC 软解 + pbin/CSM/HUD 修复全链，GitHub 862d6b4f/86e19b53/6c071144）。
+
+**地图加载已打通到引擎深处**：`+map de_dust2` 经 valve.rc（stuffcmds 通道）执行 →
+Host_Map_Helper ✓ → Map_IsValid OK ✓（de_dust2.bsp 242MB 在位）→ HostState_NewGame 排队 ✓
+
+**最后死点**：NewGame 排队后、主循环第一帧之前（stdio 无任何 HostStateFrame 帧），
+引擎在 Panorama 主菜单加载/SCR_BeginLoadingPlaque（加载画布）阶段 SIGSEGV。
+
+**注入通道最终形态**：valve.rc 直载 `map de_dust2`（libmain 的 env/文件通道均被
+shadow：napi setenv 不跨库可见、cmdline.txt 的 ".." 路径 fopen 被沙箱拒绝——
+valve.rc 的 stuffcmds 通道已验证可达引擎命令解析器）。
+
+**下一步（精确到行）**：
+1. State_Run 尾部 switch 的 `case HS_NEW_GAME: SCR_BeginLoadingPlaque(...)` 打点
+   （NewGame 排队后状态机走 HS_GAME_SHUTDOWN 先关旧"游戏"，加载画布在此触发）
+2. FrameUpdate 顶部补打 m_nextState
+3. SCR_BeginLoadingPlaque 内部打点（它触发 Panorama loading screen 加载——
+   加载画布面板类型/脚本在 CSNO 资源包里可能同样有 CS2 时代内容）
+已排除：ChangeLevelSP 崩（未到）、MDLCache BeginMapLoad 崩（未到）、
+GameShutdown 崩（未到——都没进主循环帧）
 
 ### 已验证的驱动行为模型（Maleoon 920 Vulkan 1.3.309）
 
@@ -46,6 +54,8 @@
 4. **成功创建后再调 vkCreateDevice = 驱动 SIGSEGV**（任何后续 attempt 都不行）——梯子必须"失败重试、成功即止"
 5. vkEnumerateDeviceExtensionProperties 枚举的扩展（timeline_semaphore 等）创建时也会被拒（扩展无辜，feature 链问题）
 6. 失败→失败→…→成功 序列安全；崩溃只发生在成功后的再次创建
+7. **BC 硬件缺失的治本方案已合入**（yifengling0 补丁 862d6b4f：D3D9 接 DXVK 现有
+   BC 软解 util_bc，DXT 纹理上传/锁定/回读全路径，保留压缩数据与 mip）
 
 ## 一、已完成（2026-09-30 及之前，全部有真机日志证据）
 
