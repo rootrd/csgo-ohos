@@ -418,12 +418,14 @@ void CHostState::State_NewGame()
 	m_bSplitScreenConnect = false;
 	materials->OnDebugEvent( "CHostState::State_NewGame" );
 
+	fprintf( stderr, "CSGO_TRACE: NG ValidGame=%d\n", (int)Host_ValidGame() );
 	if ( Host_ValidGame() )
 	{
 		// Demand load game .dll if running with -nogamedll flag, etc.
 		if ( !serverGameClients )
 		{
-			SV_InitGameDLL();
+			fprintf( stderr, "CSGO_TRACE: NG InitGameDLL calling\n" );
+		SV_InitGameDLL();
 		}
 
 		if ( !serverGameClients )
@@ -432,8 +434,10 @@ void CHostState::State_NewGame()
 		}
 		else
 		{
+			fprintf( stderr, "CSGO_TRACE: NG MapIsValid calling\n" );
 			if ( modelloader->Map_IsValid( m_levelName ) )
 			{
+				fprintf( stderr, "CSGO_TRACE: NG Host_NewGame calling\n" );
 				if ( Host_NewGame( m_levelName, m_mapGroupName, false, m_bBackgroundLevel, bSplitScreenConnect ) )
 				{
 					// succesfully started the new game

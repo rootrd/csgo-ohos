@@ -30,8 +30,23 @@
 **地图加载已打通到引擎深处**：`+map de_dust2` 经 valve.rc（stuffcmds 通道）执行 →
 Host_Map_Helper ✓ → Map_IsValid OK ✓（de_dust2.bsp 242MB 在位）→ HostState_NewGame 排队 ✓
 
-**最后死点**：NewGame 排队后、主循环第一帧之前（stdio 无任何 HostStateFrame 帧），
-引擎在 Panorama 主菜单加载/SCR_BeginLoadingPlaque（加载画布）阶段 SIGSEGV。
+**最后死点（精确化 2026-10-02 下午 2 轮验证）**：
+NewGame **排队后**、状态机 **HS_NEW_GAME 帧处理前**，引擎静默退出
+（stdio：body enter → done → NET_CloseAllSockets，之间无任何 State_NewGame
+函数体打点、无 HostStateFrame 帧）。排队函数 HostState_NewGame 内部还会
+触发 GameUI 状态切换（ChangeGameUIState MAINMENU→MAINMENU 已见于同位置）——
+怀疑点：GameUI/Panorama 在响应 NEW_GAME 请求时的主菜单重入清理路径崩溃
+（或 SCR_BeginLoadingPlaque 预加载）。
+
+**已装机的打点**：State_NewGame 函数体 4 断点（ValidGame/InitGameDLL/
+MapIsValid/Host_NewGame）——状态机真进入该帧时会立即给出断裂位置。
+
+**下一步**：
+1. 解锁跑一轮：若 NG ValidGame 打印 → 按 4 断点走；若仍无 → 崩在
+   排队与帧处理之间的 GameUI/Panorama 路径（查 CGameUI::SwitchToUI
+   /LoadingProgress/PlayGame 的 NEW_GAME 响应链，gameui 目录）
+2. 重点怀疑：Panorama 主菜单收到 NEW_GAME 后调用的
+   MainMenu::LoadMap → 客户端 GameUI_Shutdown/重清理路径
 
 **注入通道最终形态**：valve.rc 直载 `map de_dust2`（libmain 的 env/文件通道均被
 shadow：napi setenv 不跨库可见、cmdline.txt 的 ".." 路径 fopen 被沙箱拒绝——
