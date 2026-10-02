@@ -37,6 +37,23 @@ static napi_value SetGameRoot(napi_env env, napi_callback_info info) {
     // FcFontList 在 vgui 字体初始化时打转。只给游戏自带字体目录。
     setenv("FONTCONFIG_FILE", (g_gameRoot + "/fontconfig/fonts.conf").c_str(), 1);
     mkdir(g_gameRoot.c_str(), 0755);
+    // 联调注入通道：files/cmdline.txt（| 分隔）→ CSGO_OHOS_ARGS → 引擎命令行
+    // 追加（engine_startup.cpp）。hdc 无法设置沙箱进程环境变量，用文件桥：
+    //   hdc shell "echo '+map|de_dust2' > .../files/cmdline.txt"
+    {
+        std::string cmdPath = g_filesDir + "/cmdline.txt";
+        FILE* f = fopen(cmdPath.c_str(), "r");
+        if (f) {
+            char buf[1024] = {0};
+            size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+            fclose(f);
+            while (n && (buf[n-1] == '\n' || buf[n-1] == '\r')) buf[--n] = 0;
+            if (n) {
+                setenv("CSGO_OHOS_ARGS", buf, 1);
+                OH_LOG_INFO(LOG_APP, "cmdline inject: %{public}s", buf);
+            }
+        }
+    }
     OH_LOG_INFO(LOG_APP, "setGameRoot: %{public}s | files=%{public}s", g_gameRoot.c_str(), g_filesDir.c_str());
     napi_value result;
     napi_get_boolean(env, true, &result);

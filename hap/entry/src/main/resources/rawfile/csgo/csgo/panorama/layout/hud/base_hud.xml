@@ -1,20 +1,5 @@
 <root>
-	<style>
-		<include src="file://{resources}/styles/hud/hud.css" />
-	</style>
-	<!-- OHOS 移植：CSNO 资源包里的 base_hud.xml 是禁用桌面 HUD 的空壳，
-	     而本引擎的 CCSGOHud 硬要求以下子面板（RequireChildInLayoutFile）。
-	     种子每次启动覆盖资源包同名文件。 -->
-	<Panel id="HudTopLeft" hittest="false" />
-	<Panel id="HudTopCenter" hittest="false" />
-	<Panel id="HudTopRight" hittest="false" />
-	<Panel id="HudBottomRight" hittest="false" />
-	<Panel id="HudBottomCenter" hittest="false" />
-	<Panel id="HudLowerLeft" hittest="false" />
-	<CCSGO_HudRadio id="HudRadio" />
-	<CCSGO_HudTeamCounter id="HudTeamCounter" />
-	<CCSGO_HudBlurTarget id="HudBlur" />
-	<CCSGO_PopupManager id="PopupManager" />
-	<CCSGO_UI_TooltipManager id="TooltipManager" />
-	<CUI_ContextMenuManager id="ContextMenuManager" />
+	<!-- OHOS 移植：引擎 CCSGO_Hud 通过 RequireChildInLayoutFile 在此布局中
+	     硬查找子面板；散装覆盖空壳版（CSNO 触控 UI 方案）会导致 HudTopLeft
+	     缺失退出。此文件与 hud.xml 均由 HAP 种子每次启动覆盖。 -->
 </root>

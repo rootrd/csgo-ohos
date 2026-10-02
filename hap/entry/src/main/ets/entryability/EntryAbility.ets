@@ -23,6 +23,21 @@ export default class EntryAbility extends UIAbility {
     } catch (e) {
       hilog.error(DOMAIN, 'CSGOHOS', 'provideArkTSObjects failed: %{public}s', String(e))
     }
+    // 联调命令注入文件必须在 setGameRoot 之前落盘（napi SetGameRoot 读它写进
+    // CSGO_OHOS_ARGS——时序曾反了导致注入进不了引擎命令行）
+    try {
+      const cmd: Uint8Array = context.resourceManager.getRawFileContentSync('cmdline.txt')
+      const f = fs.openSync(context.filesDir + '/cmdline.txt',
+        fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
+      if (cmd.length > 0) {
+        fs.writeSync(f.fd, cmd.buffer as object as ArrayBuffer)
+      }
+      fs.closeSync(f)
+      hilog.info(DOMAIN, 'CSGOHOS', 'cmdline.txt seeded: %{public}s',
+        String.fromCharCode(...Array.from(cmd.subarray(0, Math.min(cmd.length, 120)))))
+    } catch (e) {
+      // 无 cmdline.txt（正常发布包）——静默
+    }
     try {
       entry.setGameRoot(context.filesDir + '/csgo', context.filesDir)
       entry.prepareGameEnv()

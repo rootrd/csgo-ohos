@@ -149,6 +149,21 @@ int runSourceEngine(int argc, char **argv, const char *resourceRoot, const char 
         "-nosteam", "-insecure", "-novid",
         "-w", std::to_string(width), "-h", std::to_string(height)
     };
+    // 联调注入通道：CSGO_OHOS_ARGS 以 | 分隔追加引擎命令行（如
+    // "+map|de_dust2|+sv_lan|1"），napi/ArkTS 或 hdc setenv 后无需重编即可
+    // 注入 +map 等启动命令（引擎 argv 无法从外部控制）。
+    if (const char* extraArgs = getenv("CSGO_OHOS_ARGS")) {
+        std::string token;
+        for (const char* p = extraArgs; ; ++p) {
+            if (*p == '|' || *p == '\0') {
+                if (!token.empty()) arguments.push_back(token);
+                token.clear();
+                if (*p == '\0') break;
+            } else {
+                token.push_back(*p);
+            }
+        }
+    }
     // Installed offline ASTC texture pack (scripts/build-android.sh sync).
     const std::string astcPack = std::string(resourceRoot) + "/astc";
     struct stat astcPackInfo;
