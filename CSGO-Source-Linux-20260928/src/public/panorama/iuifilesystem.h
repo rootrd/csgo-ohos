@@ -22,6 +22,20 @@
 namespace panorama
 {
 
+// OHOS development builds ship compatible loose UI layouts. Imported retail
+// packs can contain a newer code.pbin that would otherwise shadow those files.
+// Choose consistently for preload, named paths and input bindings, without
+// deleting or modifying the user's resource pack. Other builds keep the
+// existing file-presence policy (and their existing DEVELOPMENT_ONLY guards).
+inline bool ShouldUseLoosePanoramaResources( bool bPackedFileExists )
+{
+#if defined( __OHOS__ ) && DEVELOPMENT_ONLY
+    return true;
+#else
+    return !bPackedFileExists;
+#endif
+}
+
 typedef void( __cdecl *FileChangeCallback_t )( const char *pFullPath );
 
 //-----------------------------------------------------------------------------

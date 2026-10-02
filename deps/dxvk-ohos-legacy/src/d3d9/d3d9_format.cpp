@@ -428,6 +428,32 @@ namespace dxvk {
   D3D9VkFormatTable::D3D9VkFormatTable(
     const Rc<DxvkAdapter>& adapter,
     const D3D9Options&     options) {
+    // Sampling-only CPU fallback: never advertise BC as a render target.
+    const D3D9Format bcFormats[] = { D3D9Format::DXT1, D3D9Format::DXT2,
+      D3D9Format::DXT3, D3D9Format::DXT4, D3D9Format::DXT5,
+      D3D9Format::ATI1, D3D9Format::ATI2 };
+    constexpr VkFormatFeatureFlags required = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
+      | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT
+      | VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+    auto supported = [&] (VkFormat format) {
+      return (adapter->formatProperties(format).optimalTilingFeatures & required) == required;
+    };
+    for (D3D9Format format : bcFormats) {
+      auto mapping = ConvertFormatUnfixed(format);
+      if (adapter->features().core.features.textureCompressionBC
+          && supported(mapping.FormatColor)
+          && (mapping.FormatSrgb == VK_FORMAT_UNDEFINED || supported(mapping.FormatSrgb)))
+        continue;
+      VkFormat color = format == D3D9Format::ATI1 ? VK_FORMAT_R8_UNORM
+        : format == D3D9Format::ATI2 ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8G8B8A8_UNORM;
+      VkFormat srgb = mapping.FormatSrgb == VK_FORMAT_UNDEFINED
+        ? VK_FORMAT_UNDEFINED : VK_FORMAT_R8G8B8A8_SRGB;
+      if (supported(color) && (srgb == VK_FORMAT_UNDEFINED || supported(srgb)))
+        m_bcFallbacks.emplace(uint32_t(format), std::array<VkFormat, 2>{color, srgb});
+      else
+        m_bcFallbacks.emplace(uint32_t(format), std::array<VkFormat, 2>{VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED});
+    }
+
     m_dfSupport = options.supportDFFormats;
     m_x4r4g4b4Support = options.supportX4R4G4B4;
     m_d32supportFinal = options.supportD32;
@@ -495,6 +521,13 @@ namespace dxvk {
         VK_COMPONENT_SWIZZLE_A, alphaSwizzle };
     }
 
+    auto fallback = m_bcFallbacks.find(uint32_t(Format));
+    if (fallback != m_bcFallbacks.end()) {
+      if (fallback->second[0] == VK_FORMAT_UNDEFINED)
+        return {};
+      mapping.BcFallback[0] = fallback->second[0];
+      mapping.BcFallback[1] = fallback->second[1];
+    }
     return mapping;
   }
 
@@ -513,6 +546,14 @@ namespace dxvk {
     static const DxvkFormatInfo unknown     = {};
 
     switch (Format) {
+      case D3D9Format::DXT1:
+      case D3D9Format::DXT2:
+      case D3D9Format::DXT3:
+      case D3D9Format::DXT4:
+      case D3D9Format::DXT5:
+      case D3D9Format::ATI1:
+      case D3D9Format::ATI2:
+        return imageFormatInfo(ConvertFormatUnfixed(Format).FormatColor);
       case D3D9Format::R8G8B8:
         return &r8b8g8;
 

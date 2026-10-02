@@ -250,7 +250,7 @@ bool CPanoramaUIClient::SetupNamedPaths()
 #if DEVELOPMENT_ONLY
 	// In development check for packed and signed panorama zip file,
 	// if that file doesn't exist, then load from scattered files on local filesystem
-	if ( !g_pFullFileSystem->FileExists( PANORAMA_ZIPFILE_NAME, NULL ) )
+	if ( panorama::ShouldUseLoosePanoramaResources( g_pFullFileSystem->FileExists( PANORAMA_ZIPFILE_NAME, NULL ) ) )
 	{
 		if ( !pConfigKV->LoadFromFile( g_pFullFileSystem, pConfigFilename, "GAME" ) )
 		{

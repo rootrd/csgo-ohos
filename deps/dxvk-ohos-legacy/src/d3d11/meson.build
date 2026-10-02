@@ -28,8 +28,6 @@ d3d10_src = [
 d3d11_src = [
   'd3d11_annotation.cpp',
   'd3d11_bc.cpp',
-  '../util/etcpak/ProcessRGB.cpp',
-  '../util/etcpak/Tables.cpp',
   'd3d11_blend.cpp',
   'd3d11_buffer.cpp',
   'd3d11_class_linkage.cpp',

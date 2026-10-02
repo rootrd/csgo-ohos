@@ -1,5 +1,8 @@
 util_src = files([
   'util_env.cpp',
+  'util_bc.cpp',
+  'etcpak/ProcessRGB.cpp',
+  'etcpak/Tables.cpp',
   'util_string.cpp',
   'util_fps_limiter.cpp',
   'util_gdi.cpp',

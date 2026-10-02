@@ -36,6 +36,9 @@ namespace dxvk {
 
     m_mapping = pDevice->LookupFormat(m_desc.Format);
 
+    if (m_mapping.IsBcEmulated() && pSharedHandle)
+      throw DxvkError("D3D9: Shared BC fallback textures are unsupported.");
+
     m_mapMode        = DetermineMapMode();
     m_shadow         = DetermineShadowState();
     m_supportsFetch4 = DetermineFetch4Compatibility();
@@ -108,6 +111,17 @@ namespace dxvk {
     //////////////////////
     // Mapping Validation
     auto mapping = pDevice->LookupFormat(pDesc->Format);
+
+    if (mapping.IsBcEmulated()) {
+      if ((pDesc->Usage & (D3DUSAGE_RENDERTARGET | D3DUSAGE_DEPTHSTENCIL))
+          || pDesc->MultiSample != D3DMULTISAMPLE_NONE)
+        return D3DERR_INVALIDCALL;
+      // Native compressed images cannot generate mipmaps either.
+      if (pDesc->Usage & D3DUSAGE_AUTOGENMIPMAP) {
+        pDesc->Usage &= ~D3DUSAGE_AUTOGENMIPMAP;
+        pDesc->MipLevels = 1;
+      }
+    }
 
     // Handle DisableA8RT hack for The Sims 2
     if (pDesc->Format == D3D9Format::A8       &&
@@ -190,6 +204,8 @@ namespace dxvk {
 
     m_buffers[Subresource] = m_device->GetDXVKDevice()->createBuffer(info, memType);
     m_mappedSlices[Subresource] = m_buffers[Subresource]->getSliceHandle();
+    if (m_mapping.IsBcEmulated())
+      std::memset(m_mappedSlices[Subresource].mapPtr, 0, info.size);
 
     return true;
   }
@@ -222,7 +238,7 @@ namespace dxvk {
     imageInfo.type            = GetImageTypeFromResourceType(ResourceType);
     imageInfo.format          = m_mapping.ConversionFormatInfo.FormatColor != VK_FORMAT_UNDEFINED
                               ? m_mapping.ConversionFormatInfo.FormatColor
-                              : m_mapping.FormatColor;
+                              : m_mapping.ImageFormat();
     imageInfo.flags           = 0;
     imageInfo.sampleCount     = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.extent.width    = m_desc.Width;
@@ -272,11 +288,11 @@ namespace dxvk {
       imageInfo.flags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
 
       imageInfo.viewFormatCount = 2;
-      imageInfo.viewFormats     = m_mapping.Formats;
+      imageInfo.viewFormats     = m_mapping.IsBcEmulated() ? m_mapping.BcFallback : m_mapping.Formats;
     }
 
     // Are we an RT, need to gen mips or an offscreen plain surface?
-    if (m_desc.Usage & (D3DUSAGE_RENDERTARGET | D3DUSAGE_AUTOGENMIPMAP) || TryOffscreenRT) {
+    if (m_desc.Usage & (D3DUSAGE_RENDERTARGET | D3DUSAGE_AUTOGENMIPMAP) || (TryOffscreenRT && !m_mapping.IsBcEmulated())) {
       imageInfo.usage  |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       imageInfo.stages |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
       imageInfo.access |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
@@ -540,7 +556,7 @@ namespace dxvk {
     DxvkImageViewCreateInfo viewInfo;
     viewInfo.format    = m_mapping.ConversionFormatInfo.FormatColor != VK_FORMAT_UNDEFINED
                        ? PickSRGB(m_mapping.ConversionFormatInfo.FormatColor, m_mapping.ConversionFormatInfo.FormatSrgb, Srgb)
-                       : PickSRGB(m_mapping.FormatColor, m_mapping.FormatSrgb, Srgb);
+                       : PickSRGB(m_mapping.ImageFormat(), m_mapping.ImageFormat(true), Srgb);
     viewInfo.aspect    = imageFormatInfo(viewInfo.format)->aspectMask;
     viewInfo.swizzle   = m_mapping.Swizzle;
     viewInfo.usage     = UsageFlags;

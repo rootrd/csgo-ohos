@@ -162,6 +162,13 @@ namespace dxvk {
     if (RType == D3DRTYPE_VERTEXBUFFER || RType == D3DRTYPE_INDEXBUFFER)
       return D3D_OK;
 
+    if (mapping.IsBcEmulated()) {
+      if (Usage & (D3DUSAGE_RENDERTARGET | D3DUSAGE_DEPTHSTENCIL | D3DUSAGE_QUERY_SRGBWRITE | D3DUSAGE_QUERY_POSTPIXELSHADER_BLENDING))
+        return D3DERR_NOTAVAILABLE;
+      HRESULT result = CheckDeviceVkFormat(mapping.ImageFormat(srgb), Usage & ~D3DUSAGE_AUTOGENMIPMAP, RType);
+      return SUCCEEDED(result) && (Usage & D3DUSAGE_AUTOGENMIPMAP) ? D3DOK_NOAUTOGEN : result;
+    }
+
     // Let's actually ask Vulkan now that we got some quirks out the way!
     return CheckDeviceVkFormat(mapping.FormatColor, Usage, RType);
   }
@@ -176,7 +183,9 @@ namespace dxvk {
     if (pQualityLevels != nullptr)
       *pQualityLevels = 1;
 
-    auto dst = ConvertFormatUnfixed(SurfaceFormat);
+    auto dst = m_d3d9Formats.GetFormatMapping(SurfaceFormat);
+    if (dst.IsBcEmulated() && MultiSampleType != D3DMULTISAMPLE_NONE)
+      return D3DERR_NOTAVAILABLE;
     if (dst.FormatColor == VK_FORMAT_UNDEFINED)
       return D3DERR_NOTAVAILABLE;
 
@@ -224,7 +233,9 @@ namespace dxvk {
     if (RenderTargetFormat == dxvk::D3D9Format::NULL_FORMAT)
       return D3D_OK;
 
-    auto mapping = ConvertFormatUnfixed(RenderTargetFormat);
+    auto mapping = m_d3d9Formats.GetFormatMapping(RenderTargetFormat);
+    if (mapping.IsBcEmulated())
+      return D3DERR_NOTAVAILABLE;
     if (mapping.FormatColor == VK_FORMAT_UNDEFINED)
       return D3DERR_NOTAVAILABLE;
 

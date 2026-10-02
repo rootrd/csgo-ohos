@@ -1,16 +1,12 @@
 #pragma once
 
-#include <vector>
+#include "../util/util_cpu_image.h"
 
 #include "../dxvk/dxvk_include.h"
 
 namespace dxvk {
 
-  struct D3D11CpuImage {
-    std::vector<uint8_t> data;
-    VkDeviceSize rowPitch = 0;
-    VkDeviceSize slicePitch = 0;
-  };
+  using D3D11CpuImage = CpuImage;
 
   /**
    * Converts the D3D-visible R8G8B8A8_SNORM byte layout to the

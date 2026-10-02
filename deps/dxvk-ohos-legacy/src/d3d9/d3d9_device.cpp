@@ -1,4 +1,5 @@
 #include "d3d9_device.h"
+#include "../util/util_bc.h"
 
 #include "d3d9_annotation.h"
 #include "d3d9_interface.h"
@@ -743,8 +744,11 @@ namespace dxvk {
 
       extent = { uint32_t(pSourceRect->right - pSourceRect->left), uint32_t(pSourceRect->bottom - pSourceRect->top), 1 };
 
-      const bool extentAligned = extent.width % formatInfo->blockSize.width == 0
-        && extent.height % formatInfo->blockSize.height == 0;
+      const bool bcFallback = dstTextureInfo->GetFormatMapping().IsBcEmulated();
+      const bool extentAligned = (extent.width % formatInfo->blockSize.width == 0
+          || (bcFallback && uint32_t(pSourceRect->right) == texLevelExtent.width))
+        && (extent.height % formatInfo->blockSize.height == 0
+          || (bcFallback && uint32_t(pSourceRect->bottom) == texLevelExtent.height));
 
       if (pSourceRect->left < 0
         || pSourceRect->top < 0
@@ -768,9 +772,20 @@ namespace dxvk {
                     0u };
     }
 
+    if (dstTextureInfo->GetFormatMapping().IsBcEmulated()) {
+      auto dstExtent = dstTextureInfo->GetExtentMip(dst->GetMipLevel());
+      if (uint32_t(srcOffset.x) > texLevelExtent.width || uint32_t(srcOffset.y) > texLevelExtent.height
+          || extent.width > texLevelExtent.width - srcOffset.x || extent.height > texLevelExtent.height - srcOffset.y
+          || uint32_t(dstOffset.x) > dstExtent.width || uint32_t(dstOffset.y) > dstExtent.height
+          || extent.width > dstExtent.width - dstOffset.x || extent.height > dstExtent.height - dstOffset.y
+          || ((extent.width % 4) && uint32_t(dstOffset.x) + extent.width != dstExtent.width)
+          || ((extent.height % 4) && uint32_t(dstOffset.y) + extent.height != dstExtent.height))
+        return D3DERR_INVALIDCALL;
+    }
+
     UpdateTextureFromBuffer(dstTextureInfo, srcTextureInfo, dst->GetSubresource(), src->GetSubresource(), srcOffset, extent, dstOffset);
 
-    dstTextureInfo->SetNeedsReadback(dst->GetSubresource(), true);
+    dstTextureInfo->SetNeedsReadback(dst->GetSubresource(), !dstTextureInfo->GetFormatMapping().IsBcEmulated());
 
     if (dstTextureInfo->IsAutomaticMip())
       MarkTextureMipsDirty(dstTextureInfo);
@@ -832,7 +847,7 @@ namespace dxvk {
         VkOffset3D offset = util::computeMipLevelOffset(mip0Offset, srcMip);
 
         UpdateTextureFromBuffer(dstTexInfo, srcTexInfo, dstSubresource, srcSubresource, offset, extent, offset);
-        dstTexInfo->SetNeedsReadback(dstSubresource, true);
+        dstTexInfo->SetNeedsReadback(dstSubresource, !dstTexInfo->GetFormatMapping().IsBcEmulated());
       }
     }
 
@@ -868,6 +883,20 @@ namespace dxvk {
 
     if (dstTexInfo->Desc()->Pool == D3DPOOL_DEFAULT)
       return this->StretchRect(pRenderTarget, nullptr, pDestSurface, nullptr, D3DTEXF_NONE);
+
+    if (srcTexInfo->GetFormatMapping().IsBcEmulated()) {
+      if (srcTexInfo->GetExtentMip(src->GetMipLevel()) != dstTexInfo->GetExtentMip(dst->GetMipLevel()))
+        return D3DERR_INVALIDCALL;
+      srcTexInfo->CreateBufferSubresource(src->GetSubresource());
+      dstTexInfo->CreateBufferSubresource(dst->GetSubresource());
+      auto source = srcTexInfo->GetMappedSlice(src->GetSubresource());
+      auto target = dstTexInfo->GetMappedSlice(dst->GetSubresource());
+      if (source.length != target.length)
+        return D3DERR_INVALIDCALL;
+      std::memcpy(target.mapPtr, source.mapPtr, source.length);
+      dstTexInfo->SetNeedsReadback(dst->GetSubresource(), false);
+      return D3D_OK;
+    }
 
     Rc<DxvkBuffer> dstBuffer = dstTexInfo->GetBuffer(dst->GetSubresource());
 
@@ -1034,6 +1063,26 @@ namespace dxvk {
       uint32_t(blitInfo.dstOffsets[1].y - blitInfo.dstOffsets[0].y),
       uint32_t(blitInfo.dstOffsets[1].z - blitInfo.dstOffsets[0].z) };
 
+    if (dstTextureInfo->GetFormatMapping().IsBcEmulated()) {
+      // A BC destination is copy-only. Re-encoding arbitrary blits/rendering
+      // would lose the application's original compressed byte representation.
+      auto so = blitInfo.srcOffsets[0];
+      auto doff = blitInfo.dstOffsets[0];
+      bool aligned = !(so.x % 4 || so.y % 4 || doff.x % 4 || doff.y % 4);
+      bool edgeX = !(srcCopyExtent.width % 4)
+        || (so.x + srcCopyExtent.width == srcExtent.width && doff.x + srcCopyExtent.width == dstExtent.width);
+      bool edgeY = !(srcCopyExtent.height % 4)
+        || (so.y + srcCopyExtent.height == srcExtent.height && doff.y + srcCopyExtent.height == dstExtent.height);
+      if (srcFormat != dstFormat || !srcTextureInfo->GetFormatMapping().IsBcEmulated()
+          || srcCopyExtent != dstCopyExtent || !aligned || !edgeX || !edgeY
+          || !srcCopyExtent.width || !srcCopyExtent.height || needsResolve || fbBlit)
+        return D3DERR_INVALIDCALL;
+      srcTextureInfo->CreateBufferSubresource(src->GetSubresource());
+      UpdateTextureFromBuffer(dstTextureInfo, srcTextureInfo, dst->GetSubresource(),
+        src->GetSubresource(), so, srcCopyExtent, doff);
+      return D3D_OK;
+    }
+
     // Copies would only work if the extents match. (ie. no stretching)
     bool stretch = srcCopyExtent != dstCopyExtent;
     fastPath &= !stretch;
@@ -1140,6 +1189,9 @@ namespace dxvk {
     D3D9CommonTexture* dstTextureInfo = dst->GetCommonTexture();
 
     if (unlikely(dstTextureInfo->Desc()->Pool != D3DPOOL_DEFAULT))
+      return D3DERR_INVALIDCALL;
+
+    if (dstTextureInfo->GetFormatMapping().IsBcEmulated())
       return D3DERR_INVALIDCALL;
 
     VkExtent3D mipExtent = dstTextureInfo->GetExtentMip(dst->GetSubresource());
@@ -3923,8 +3975,8 @@ namespace dxvk {
     enabled.core.features.shaderClipDistance = VK_TRUE;
     // DXSO/fixed-function shaders emit ClipDistance, never CullDistance.
 
-    // Ensure we support real BC formats and unofficial vendor ones.
-    enabled.core.features.textureCompressionBC = VK_TRUE;
+    // Unsupported BC formats use the upload-time CPU fallback in D3D9.
+    enabled.core.features.textureCompressionBC = supported.core.features.textureCompressionBC;
 
     enabled.extDepthClipEnable.depthClipEnable = supported.extDepthClipEnable.depthClipEnable;
     enabled.extHostQueryReset.hostQueryReset = VK_TRUE;
@@ -3948,17 +4000,6 @@ namespace dxvk {
     }
 
     enabled.extNonSeamlessCubeMap.nonSeamlessCubeMap = supported.extNonSeamlessCubeMap.nonSeamlessCubeMap;
-
-    // OHOS/Maleoon: 移动 GPU 无桌面 BC 块压缩。把请求的核心位与驱动实报求交，
-    // 缺失格式（DXT）在逐纹理创建时单独失败——引擎继续运行，纹理包走
-    // ASTC/未压缩路径；硬性要求 BC 会让 vkCreateDevice 永远失败。
-    {
-      auto* reqBits = reinterpret_cast<VkBool32*>(&enabled.core.features);
-      const auto* supBits = reinterpret_cast<const VkBool32*>(&supported.core.features);
-      constexpr size_t bitCount = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
-      for (size_t i = 0; i < bitCount; i++)
-        reqBits[i] = reqBits[i] && supBits[i];
-    }
 
     return enabled;
   }
@@ -4173,6 +4214,24 @@ namespace dxvk {
     VkExtent3D levelExtent = pResource->GetExtentMip(MipLevel);
     VkExtent3D blockCount  = util::computeBlockCount(levelExtent, formatInfo->blockSize);
 
+    if (formatMapping.IsBcEmulated() && pBox) {
+      if (pBox->Left >= pBox->Right || pBox->Top >= pBox->Bottom || pBox->Front >= pBox->Back
+          || pBox->Right > levelExtent.width || pBox->Bottom > levelExtent.height || pBox->Back > levelExtent.depth)
+        return D3DERR_INVALIDCALL;
+      bool ati = desc.Format == D3D9Format::ATI1 || desc.Format == D3D9Format::ATI2;
+      // ATI's legacy reported pitches describe a fictitious byte-per-pixel
+      // layout, not the BC shadow allocation. Partial boxes cannot use that
+      // layout safely (e.g. top=4 is already past an 8x8 ATI1 shadow).
+      if (ati && (pBox->Left || pBox->Top || pBox->Front
+          || pBox->Right != levelExtent.width || pBox->Bottom != levelExtent.height
+          || pBox->Back != levelExtent.depth))
+        return D3DERR_INVALIDCALL;
+      if (!ati && ((pBox->Left % 4) || (pBox->Top % 4)
+          || ((pBox->Right % 4) && pBox->Right != levelExtent.width)
+          || ((pBox->Bottom % 4) && pBox->Bottom != levelExtent.height)))
+        return D3DERR_INVALIDCALL;
+    }
+
     const bool systemmem = desc.Pool == D3DPOOL_SYSTEMMEM;
     const bool managed   = IsPoolManaged(desc.Pool);
     const bool scratch   = desc.Pool == D3DPOOL_SCRATCH;
@@ -4213,7 +4272,8 @@ namespace dxvk {
     // then we need to copy -> buffer
     // We are also always dirty if we are a render target,
     // a depth stencil, or auto generate mipmaps.
-    bool needsReadback = pResource->NeedsReachback(Subresource) || renderable;
+    bool needsReadback = !formatMapping.IsBcEmulated()
+      && (pResource->NeedsReachback(Subresource) || renderable);
     pResource->SetNeedsReadback(Subresource, false);
 
     DxvkBufferSliceHandle physSlice;
@@ -4416,6 +4476,7 @@ namespace dxvk {
     // and we aren't managed (for sysmem copy.)
     bool shouldToss  = pResource->GetMapMode() == D3D9_COMMON_TEXTURE_MAP_MODE_BACKED;
          shouldToss &= !pResource->IsDynamic();
+         shouldToss &= !pResource->GetFormatMapping().IsBcEmulated();
          shouldToss &= !pResource->IsManaged() || m_d3d9Options.evictManagedOnUnlock;
 
     if (shouldToss) {
@@ -4479,6 +4540,66 @@ namespace dxvk {
     VkExtent3D srcTexLevelExtentBlockCount = util::computeBlockCount(srcTexLevelExtent, formatInfo->blockSize);
 
     auto convertFormat = pDestTexture->GetFormatMapping().ConversionFormatInfo;
+
+    if (pDestTexture->GetFormatMapping().IsBcEmulated()) {
+      if (SrcOffset.x < 0 || SrcOffset.y < 0 || SrcOffset.z < 0
+          || DestOffset.x < 0 || DestOffset.y < 0 || DestOffset.z < 0
+          || uint32_t(SrcOffset.x) >= srcTexLevelExtent.width
+          || uint32_t(SrcOffset.y) >= srcTexLevelExtent.height
+          || uint32_t(SrcOffset.z) >= srcTexLevelExtent.depth
+          || uint32_t(DestOffset.x) >= dstTexLevelExtent.width
+          || uint32_t(DestOffset.y) >= dstTexLevelExtent.height
+          || uint32_t(DestOffset.z) >= dstTexLevelExtent.depth)
+        return;
+      // Align in the D3D-visible BC layout, including small/NPOT mip edges.
+      const auto* bcInfo = imageFormatInfo(pDestTexture->GetFormatMapping().FormatColor);
+      VkOffset3D srcOffset = { int32_t(alignDown(SrcOffset.x, 4)), int32_t(alignDown(SrcOffset.y, 4)), SrcOffset.z };
+      VkOffset3D dstOffset = { int32_t(alignDown(DestOffset.x, 4)), int32_t(alignDown(DestOffset.y, 4)), DestOffset.z };
+      VkExtent3D extent = { align(SrcExtent.width + SrcOffset.x - srcOffset.x, 4),
+        align(SrcExtent.height + SrcOffset.y - srcOffset.y, 4), SrcExtent.depth };
+      extent = util::snapExtent3D(srcOffset, extent, srcTexLevelExtent);
+      extent = util::snapExtent3D(dstOffset, extent, dstTexLevelExtent);
+      if (!extent.width || !extent.height || !extent.depth)
+        return;
+      auto srcBlocks = util::computeBlockCount(srcTexLevelExtent, bcInfo->blockSize);
+      VkDeviceSize rowPitch = align(srcBlocks.width * bcInfo->elementSize, 4);
+      VkDeviceSize slicePitch = rowPitch * srcBlocks.height;
+      const auto* data = static_cast<const uint8_t*>(srcSlice.mapPtr)
+        + srcOffset.z * slicePitch + (srcOffset.y / 4) * rowPitch + (srcOffset.x / 4) * bcInfo->elementSize;
+
+      // UpdateSurface/UpdateTexture must keep a lossless compressed readback
+      // shadow, not try to fit physical RGBA pixels into a BC-sized buffer.
+      if (pDestTexture != pSrcTexture || DestSubresource != SrcSubresource) {
+        bool allocated = pDestTexture->CreateBufferSubresource(DestSubresource);
+        auto dstSlice = pDestTexture->GetMappedSlice(DestSubresource);
+        if (allocated)
+          std::memset(dstSlice.mapPtr, 0, dstSlice.length);
+        auto dstBlocks = util::computeBlockCount(dstTexLevelExtent, bcInfo->blockSize);
+        VkDeviceSize dstRowPitch = align(dstBlocks.width * bcInfo->elementSize, 4);
+        VkDeviceSize dstSlicePitch = dstRowPitch * dstBlocks.height;
+        auto* dstData = static_cast<uint8_t*>(dstSlice.mapPtr)
+          + dstOffset.z * dstSlicePitch + (dstOffset.y / 4) * dstRowPitch + (dstOffset.x / 4) * bcInfo->elementSize;
+        auto blocks = util::computeBlockCount(extent, bcInfo->blockSize);
+        for (uint32_t z = 0; z < blocks.depth; z++)
+          for (uint32_t y = 0; y < blocks.height; y++)
+            std::memcpy(dstData + z * dstSlicePitch + y * dstRowPitch,
+              data + z * slicePitch + y * rowPitch, blocks.width * bcInfo->elementSize);
+      }
+
+      CpuImage decoded;
+      if (!DecodeBcImage(pDestTexture->GetFormatMapping().FormatColor, image->info().format,
+            extent, data, rowPitch, slicePitch, decoded))
+        throw DxvkError("D3D9: BC upload decode failed");
+      D3D9BufferSlice upload = AllocTempBuffer<false>(decoded.data.size());
+      std::memcpy(upload.mapPtr, decoded.data.data(), decoded.data.size());
+      EmitCs([cSrc = upload.slice, cImage = image, cLayers = dstLayers,
+              cOffset = dstOffset, cExtent = extent] (DxvkContext* ctx) {
+        ctx->copyBufferToImage(cImage, cLayers, cOffset, cExtent,
+          cSrc.buffer(), cSrc.offset(), 1, 1);
+      });
+      pDestTexture->SetNeedsReadback(DestSubresource, false);
+      return;
+    }
 
     if (likely(convertFormat.FormatType == D3D9ConversionFormat_None)) {
       VkOffset3D alignedDestOffset = {
@@ -6964,6 +7085,9 @@ namespace dxvk {
 
     D3D9CommonTexture* srcTextureInfo = GetCommonTexture(src);
     D3D9CommonTexture* dstTextureInfo = GetCommonTexture(dst);
+
+    if (dstTextureInfo->GetFormatMapping().IsBcEmulated())
+      return;
 
     const D3D9_COMMON_TEXTURE_DESC* srcDesc = srcTextureInfo->Desc();
     const D3D9_COMMON_TEXTURE_DESC* dstDesc = dstTextureInfo->Desc();

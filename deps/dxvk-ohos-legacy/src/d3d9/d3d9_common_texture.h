@@ -239,6 +239,9 @@ namespace dxvk {
      * Destroys mapping and staging buffers for a given subresource
      */
     void DestroyBufferSubresource(UINT Subresource) {
+      // The compressed shadow is authoritative: RGBA readback cannot recover BC.
+      if (m_mapping.IsBcEmulated())
+        return;
       m_buffers[Subresource] = nullptr;
       SetNeedsReadback(Subresource, true);
     }

@@ -50,17 +50,39 @@ fi
 # Ensure that the engine and dependency build use the same public API.
 cmp "$source_dir/include/v8.h" "$root/CSGO-Source-Linux-20260928/src/thirdparty/v8/include/v8.h"
 
-# googlesource +archive tarball 每次生成字节不同（gzip 时间戳），哈希不可复现；
-# 文件已人工校验内容（gyp_main.py 存在）后放行
-if [[ ! -f "$downloads/gyp.tar.gz" ]]; then
-    fetch gyp.tar.gz \
-        https://chromium.googlesource.com/external/gyp/+archive/e7079f0e0e14108ab0dba58728ff219637458563.tar.gz \
-        25ed524dacd0899f31edcfaeb549013f4f4a3f6356b5e4b39078b123cfde7305
+# googlesource +archive gzip metadata is not reproducible. Keep the original
+# revision, verify its official Git commit/tree, and cache a deterministic tar.
+# Verify the archive on EVERY cache hit; never trust only gyp_main.py's presence.
+gyp_revision=e7079f0e0e14108ab0dba58728ff219637458563
+gyp_tree=ea08eb644f21477d1f0dd77d3052e306d0a9da04
+gyp_tar_sha256=435def02979d91b9ec743785a5893e66248e4d9061f4349b9f9a723e8aba4b84
+gyp_archive="$downloads/gyp-$gyp_revision.tar"
+if [[ ! -f "$gyp_archive" ]]; then
+    command -v git >/dev/null
+    gyp_git="$build_root/gyp-official.git"
+    if [[ ! -d "$gyp_git" ]]; then
+        git init --bare "$gyp_git"
+    fi
+    git -C "$gyp_git" fetch --no-tags --depth=1 \
+        https://chromium.googlesource.com/external/gyp "$gyp_revision"
+    test "$(git -C "$gyp_git" rev-parse FETCH_HEAD)" = "$gyp_revision"
+    test "$(git -C "$gyp_git" rev-parse "$gyp_revision^{tree}")" = "$gyp_tree"
+    git -C "$gyp_git" fsck --strict --no-dangling
+    git -C "$gyp_git" archive --format=tar "$gyp_revision" > "$gyp_archive.part"
+    verify "$gyp_archive.part" "$gyp_tar_sha256"
+    mv "$gyp_archive.part" "$gyp_archive"
 fi
-if [[ ! -f "$source_dir/tools/gyp/gyp_main.py" ]]; then
-    mkdir -p "$source_dir/tools/gyp"
-    tar -xzf "$downloads/gyp.tar.gz" -C "$source_dir/tools/gyp"
+verify "$gyp_archive" "$gyp_tar_sha256"
+# Fresh extraction prevents stale or altered sources/bytecode from bypassing
+# verification. Preserve the previous generated tree instead of deleting it.
+gyp_export=$(mktemp -d "$build_root/gyp-verified.XXXXXX")
+tar -xf "$gyp_archive" -C "$gyp_export"
+mkdir -p "$source_dir/tools"
+if [[ -e "$source_dir/tools/gyp" || -L "$source_dir/tools/gyp" ]]; then
+    gyp_backup=$(mktemp -d "$build_root/gyp-previous.XXXXXX")
+    mv "$source_dir/tools/gyp" "$gyp_backup/tree"
 fi
+mv "$gyp_export" "$source_dir/tools/gyp"
 fetch_text "$source_dir/base/trace_event/common/trace_event_common.h" \
     'https://chromium.googlesource.com/chromium/src/base/trace_event/common/+/06294c8a4a6f744ef284cd63cfe54dbf61eea290/trace_event_common.h?format=TEXT' \
     36f266066214cc8c3ee8e2b11fb943148285cc6f8f86986af949281684809902

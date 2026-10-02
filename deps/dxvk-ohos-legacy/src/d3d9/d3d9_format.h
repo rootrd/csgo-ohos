@@ -7,6 +7,7 @@
 #include "../dxvk/dxvk_format.h"
 
 #include <unordered_map>
+#include <array>
 
 namespace dxvk {
 
@@ -165,6 +166,14 @@ namespace dxvk {
       VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
     D3D9_CONVERSION_FORMAT_INFO ConversionFormatInfo = { };
 
+    // D3D-visible formats above retain BC block layout. These are only the
+    // physical Vulkan image/view formats when native BC is unavailable.
+    VkFormat BcFallback[2] = { VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED };
+    bool IsBcEmulated() const { return BcFallback[0] != VK_FORMAT_UNDEFINED; }
+    VkFormat ImageFormat(bool srgb = false) const {
+      return IsBcEmulated() ? BcFallback[srgb] : Formats[srgb];
+    }
+
     bool IsValid() const { return FormatColor != VK_FORMAT_UNDEFINED; }
   };
 
@@ -210,6 +219,8 @@ namespace dxvk {
       const Rc<DxvkAdapter>&      Adapter,
       VkFormat              Format,
       VkFormatFeatureFlags  Features) const;
+
+    std::unordered_map<uint32_t, std::array<VkFormat, 2>> m_bcFallbacks;
 
     bool m_a4r4g4b4Support;
     bool m_d24s8Support;

@@ -1,0 +1,117 @@
+#include "util/util_bc.h"
+#include <algorithm>
+#include <cassert>
+#include <cstring>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+using namespace dxvk;
+using UINT=unsigned;
+template<class T> using Rc=std::shared_ptr<T>;
+struct DxvkError : std::runtime_error { using std::runtime_error::runtime_error; };
+uint32_t align(uint32_t n,uint32_t a) {return (n+a-1)/a*a;}
+uint32_t alignDown(uint32_t n,uint32_t a) {return n/a*a;}
+namespace util {
+VkExtent3D computeMipLevelExtent(VkExtent3D e,unsigned l) {return {std::max(e.width>>l,1u),std::max(e.height>>l,1u),std::max(e.depth>>l,1u)};}
+VkExtent3D computeBlockCount(VkExtent3D e,VkExtent3D b) {return {(e.width+b.width-1)/b.width,(e.height+b.height-1)/b.height,(e.depth+b.depth-1)/b.depth};}
+VkExtent3D snapExtent3D(VkOffset3D o,VkExtent3D e,VkExtent3D max) {return {std::min(e.width,max.width-o.x),std::min(e.height,max.height-o.y),std::min(e.depth,max.depth-o.z)};}
+}
+struct Info { unsigned elementSize; VkImageAspectFlags aspectMask=VK_IMAGE_ASPECT_COLOR_BIT; VkExtent3D blockSize={1,1,1}; };
+const Info* imageFormatInfo(VkFormat f) {
+  static Info bc1{8,VK_IMAGE_ASPECT_COLOR_BIT,{4,4,1}},bc23{16,VK_IMAGE_ASPECT_COLOR_BIT,{4,4,1}},rgba{4},r{1},rg{2};
+  if(f==VK_FORMAT_BC1_RGBA_UNORM_BLOCK || f==VK_FORMAT_BC4_UNORM_BLOCK) return &bc1;
+  if(f==VK_FORMAT_BC2_UNORM_BLOCK || f==VK_FORMAT_BC3_UNORM_BLOCK || f==VK_FORMAT_BC5_UNORM_BLOCK) return &bc23;
+  return f==VK_FORMAT_R8_UNORM?&r:f==VK_FORMAT_R8G8_UNORM?&rg:&rgba;
+}
+struct Slice {
+  Rc<std::vector<uint8_t>> bytes;
+  auto buffer() const {return bytes;}
+  VkDeviceSize offset() const {return 0;}
+};
+struct DxvkBufferSliceHandle {void* mapPtr; VkDeviceSize length;};
+struct D3D9BufferSlice {Slice slice; void* mapPtr;};
+struct ImageInfo {VkFormat format;};
+struct DxvkImage {
+  ImageInfo props; VkExtent3D extent; unsigned mips;
+  std::vector<std::vector<uint8_t>> pixels;
+  const auto& info() const {return props;}
+  VkExtent3D mipLevelExtent(unsigned m) const {return util::computeMipLevelExtent(extent,m);}
+};
+struct Mapping {
+  VkFormat FormatColor;
+  struct {} ConversionFormatInfo;
+  bool IsBcEmulated() const {return true;}
+};
+struct D3D9CommonTexture {
+  VkExtent3D extent; unsigned mips; Mapping mapping; Rc<DxvkImage> image;
+  std::vector<std::vector<uint8_t>> shadow; std::vector<bool> needsReadback;
+  D3D9CommonTexture(VkExtent3D e,unsigned levels,unsigned faces,VkFormat bc,VkFormat target)
+    :extent(e),mips(levels),mapping{bc},image(std::make_shared<DxvkImage>()),shadow(levels*faces),needsReadback(levels*faces,true) {
+    image->props.format=target; image->extent=e; image->mips=levels; image->pixels.resize(levels*faces);
+    for(unsigned i=0;i<levels*faces;i++) {auto ex=image->mipLevelExtent(i%levels);image->pixels[i].resize(ex.width*ex.height*ex.depth*imageFormatInfo(target)->elementSize,0xCD);CreateBufferSubresource(i);}
+  }
+  bool CreateBufferSubresource(unsigned i) {
+    if(!shadow[i].empty()) return false;
+    auto e=util::computeMipLevelExtent(extent,i%mips);auto info=imageFormatInfo(mapping.FormatColor);auto b=util::computeBlockCount(e,info->blockSize);
+    shadow[i].resize(b.width*b.height*b.depth*info->elementSize);return true;
+  }
+  const auto& GetImage() const {return image;}
+  const auto& GetFormatMapping() const {return mapping;}
+  auto GetMappedSlice(unsigned i) {return DxvkBufferSliceHandle{shadow.at(i).data(),shadow.at(i).size()};}
+  auto GetSubresourceFromIndex(VkImageAspectFlags aspect,unsigned i) {return VkImageSubresource{aspect,i%mips,i/mips};}
+  VkExtent3D GetExtent() const {return extent;}
+  void SetNeedsReadback(unsigned i,bool value) {needsReadback[i]=value;}
+};
+struct DxvkContext {
+  unsigned copies=0;
+  void copyBufferToImage(Rc<DxvkImage> image,VkImageSubresourceLayers layers,VkOffset3D off,VkExtent3D ex,
+      Rc<std::vector<uint8_t>> bytes,VkDeviceSize,unsigned,unsigned) {
+    copies++;
+    auto dst=image->mipLevelExtent(layers.mipLevel);unsigned pixel=imageFormatInfo(image->info().format)->elementSize;
+    auto& target=image->pixels.at(layers.baseArrayLayer*image->mips+layers.mipLevel);
+    for(unsigned z=0;z<ex.depth;z++) for(unsigned y=0;y<ex.height;y++) {
+      size_t pos=(((off.z+z)*dst.height+off.y+y)*dst.width+off.x)*pixel;
+      assert(pos+ex.width*pixel<=target.size());
+      std::memcpy(target.data()+pos,bytes->data()+(z*ex.height+y)*ex.width*pixel,ex.width*pixel);
+    }
+  }
+};
+struct Device {
+  DxvkContext ctx;
+  template<bool> D3D9BufferSlice AllocTempBuffer(size_t n) {Slice s{std::make_shared<std::vector<uint8_t>>(n)};return {s,s.bytes->data()};}
+  template<class F> void EmitCs(F f) {f(&ctx);}
+__UPLOAD__
+};
+static void redBlocks(D3D9CommonTexture& t,unsigned i) {
+  auto& bytes=t.shadow[i]; auto n=imageFormatInfo(t.mapping.FormatColor)->elementSize;
+  for(size_t j=0;j<bytes.size();j+=n) {bytes[j]=0;bytes[j+1]=0xf8;}
+}
+int main() {
+  Device d;
+  // Padded source row, nonzero destination and untouched neighboring BC blocks.
+  D3D9CommonTexture src({8,8,1},1,1,VK_FORMAT_BC1_RGBA_UNORM_BLOCK,VK_FORMAT_R8G8B8A8_UNORM);
+  D3D9CommonTexture dst({12,12,1},1,1,VK_FORMAT_BC1_RGBA_UNORM_BLOCK,VK_FORMAT_R8G8B8A8_UNORM);
+  redBlocks(src,0); auto before=src.shadow[0];
+  d.UpdateTextureFromBuffer(&dst,&src,0,0,{4,4,0},{4,4,1},{8,4,0});
+  assert(src.shadow[0]==before && !dst.needsReadback[0]);
+  assert(dst.shadow[0][(1*3+2)*8+1]==0xf8 && dst.shadow[0][1]==0);
+  auto& p=dst.image->pixels[0];assert(p[(4*12+8)*4]==255 && p[(4*12+8)*4+3]==255);assert(p[0]==0xCD);
+  // Every cube face and mip tail independently decoded, including 1x1 and NPOT.
+  D3D9CommonTexture cube({7,9,1},4,6,VK_FORMAT_BC1_RGBA_UNORM_BLOCK,VK_FORMAT_R8G8B8A8_UNORM);
+  for(unsigned i=0;i<24;i++) {
+    redBlocks(cube,i);auto bytes=cube.shadow[i];auto ex=cube.image->mipLevelExtent(i%4);
+    d.UpdateTextureFromBuffer(&cube,&cube,i,i,{0,0,0},ex,{0,0,0});
+    assert(cube.shadow[i]==bytes);for(size_t j=0;j<cube.image->pixels[i].size();j+=4) assert(cube.image->pixels[i][j]==255 && cube.image->pixels[i][j+3]==255);
+  }
+  // Partial dirty rectangle expands to BC block boundaries, cropping the edge.
+  d.UpdateTextureFromBuffer(&cube,&cube,0,0,{5,6,0},{2,3,1},{5,6,0});
+  // Volume slices are separate, and copy preserves the compressed shadow.
+  D3D9CommonTexture vol({5,3,3},1,1,VK_FORMAT_BC1_RGBA_UNORM_BLOCK,VK_FORMAT_R8G8B8A8_UNORM);
+  redBlocks(vol,0); d.UpdateTextureFromBuffer(&vol,&vol,0,0,{0,0,0},{5,3,3},{0,0,0});
+  for(size_t j=0;j<vol.image->pixels[0].size();j+=4) assert(vol.image->pixels[0][j]==255);
+  unsigned calls=d.ctx.copies;
+  d.UpdateTextureFromBuffer(&vol,&vol,0,0,{999,0,0},{1,1,1},{0,0,0});
+  d.UpdateTextureFromBuffer(&vol,&vol,0,0,{-1,0,0},{1,1,1},{0,0,0});
+  assert(d.ctx.copies==calls);
+  std::cout << "PASS: actual D3D9 BC upload branch, offsets/shadows, all cube mips, NPOT edges, dirty regions, volumes and invalid origins (host context stub)\n";
+}

@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include "d3d9_initializer.h"
+#include "../util/util_bc.h"
 
 namespace dxvk {
 
@@ -77,6 +78,30 @@ namespace dxvk {
   void D3D9Initializer::InitDeviceLocalTexture(
           D3D9CommonTexture* pTexture) {
     std::lock_guard<dxvk::mutex> lock(m_mutex);
+
+    if (pTexture->GetFormatMapping().IsBcEmulated()) {
+      // Match native BC zero-block initialization (DXT1 black is opaque),
+      // and retain those exact bytes for subsequent partial locks/readback.
+      pTexture->CreateBuffers();
+      auto image = pTexture->GetImage();
+      auto* info = imageFormatInfo(pTexture->GetFormatMapping().FormatColor);
+      for (uint32_t i = 0; i < pTexture->CountSubresources(); i++) {
+        auto subresource = pTexture->GetSubresourceFromIndex(VK_IMAGE_ASPECT_COLOR_BIT, i);
+        auto extent = image->mipLevelExtent(subresource.mipLevel);
+        auto blocks = util::computeBlockCount(extent, info->blockSize);
+        VkDeviceSize rowPitch = align(blocks.width * info->elementSize, 4);
+        CpuImage decoded;
+        if (!DecodeBcImage(pTexture->GetFormatMapping().FormatColor, image->info().format,
+            extent, pTexture->GetMappedSlice(i).mapPtr, rowPitch, rowPitch * blocks.height, decoded))
+          throw DxvkError("D3D9: BC initialization decode failed");
+        VkImageSubresourceLayers layers = {VK_IMAGE_ASPECT_COLOR_BIT, subresource.mipLevel, subresource.arrayLayer, 1};
+        m_context->uploadImage(image, layers, decoded.data.data(), decoded.rowPitch, decoded.slicePitch);
+        m_transferCommands++;
+        m_transferMemory += decoded.data.size();
+        FlushImplicit();
+      }
+      return;
+    }
 
     auto InitImage = [&](Rc<DxvkImage> image) {
       if (image == nullptr)
