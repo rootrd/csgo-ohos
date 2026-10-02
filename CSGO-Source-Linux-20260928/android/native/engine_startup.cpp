@@ -10,6 +10,9 @@
 #include <unwind.h>
 #include "tier0/logging.h"
 #include "tier0/threadtools.h"
+#ifdef __OHOS__
+#include "ohos_compat.h"
+#endif
 
 extern void androidEngineLog(const char *message);
 
@@ -157,12 +160,18 @@ int runSourceEngine(int argc, char **argv, const char *resourceRoot, const char 
     std::string cmdFilePath = std::string(resourceRoot) + "/csgo/cmdline.txt";
     {
         FILE* f = fopen(cmdFilePath.c_str(), "r");
-        if (f) {
+        if (!f) {
+            // stderr 此刻尚未重定向到 stdio.log，用 hilog 才可见
+            FILE* ef = fopen((std::string(resourceRoot) + "/csgo/cmdline_debug.txt").c_str(), "w");
+            if (ef) { fprintf(ef, "fopen FAILED errno=%d path=%s\n", errno, cmdFilePath.c_str()); fclose(ef); }
+        } else {
             static char cmdBuf[1024] = {0};
             size_t n = fread(cmdBuf, 1, sizeof(cmdBuf) - 1, f);
+            int readErr = ferror(f);
             fclose(f);
             while (n && (cmdBuf[n-1] == '\n' || cmdBuf[n-1] == '\r')) cmdBuf[--n] = 0;
-            if (n) extraArgs = cmdBuf;
+            FILE* ef = fopen((std::string(resourceRoot) + "/csgo/cmdline_debug.txt").c_str(), "w");
+            if (ef) { fprintf(ef, "read n=%zu content=%s\n", n, cmdBuf); fclose(ef); }
         }
     }
     if (!extraArgs)

@@ -2,5 +2,5 @@
 // The engine runs this file at startup; +commands from the real command line
 // are unreliable on OHOS (libmain env/file channels get shadowed).
 stuffcmds
-map de_dust2
+
 fps_max 30

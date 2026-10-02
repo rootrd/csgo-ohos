@@ -1,5 +1,18 @@
 <root>
-	<!-- OHOS 移植：引擎 CCSGO_Hud 通过 RequireChildInLayoutFile 在此布局中
-	     硬查找子面板；散装覆盖空壳版（CSNO 触控 UI 方案）会导致 HudTopLeft
-	     缺失退出。此文件与 hud.xml 均由 HAP 种子每次启动覆盖。 -->
+	<styles>
+	</styles>
+	<Panel class="WindowRoot" hittest="false">
+		<Panel id="HudTopLeft"></Panel>
+		<Panel id="HudTopCenter"></Panel>
+		<Panel id="HudTopRight"></Panel>
+		<Panel id="HudBottomRight"></Panel>
+		<Panel id="HudBottomCenter"></Panel>
+		<Panel id="HudLowerLeft"></Panel>
+		<CSGOHudRadio id="HudRadio"></CSGOHudRadio>
+		<CSGOHudTeamCounter id="HudTeamCounter"></CSGOHudTeamCounter>
+		<CSGOHudBlurTarget id="HudBlur"></CSGOHudBlurTarget>
+		<CSGOPopupManager id="PopupManager"></CSGOPopupManager>
+		<CSGOTooltipManager id="TooltipManager"></CSGOTooltipManager>
+		<ContextMenuManager id="ContextMenuManager"></ContextMenuManager>
+	</Panel>
 </root>

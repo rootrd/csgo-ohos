@@ -30,13 +30,22 @@
 **地图加载已打通到引擎深处**：`+map de_dust2` 经 valve.rc（stuffcmds 通道）执行 →
 Host_Map_Helper ✓ → Map_IsValid OK ✓（de_dust2.bsp 242MB 在位）→ HostState_NewGame 排队 ✓
 
-**最后死点（精确化 2026-10-02 下午 2 轮验证）**：
-NewGame **排队后**、状态机 **HS_NEW_GAME 帧处理前**，引擎静默退出
-（stdio：body enter → done → NET_CloseAllSockets，之间无任何 State_NewGame
-函数体打点、无 HostStateFrame 帧）。排队函数 HostState_NewGame 内部还会
-触发 GameUI 状态切换（ChangeGameUIState MAINMENU→MAINMENU 已见于同位置）——
-怀疑点：GameUI/Panorama 在响应 NEW_GAME 请求时的主菜单重入清理路径崩溃
-（或 SCR_BeginLoadingPlaque 预加载）。
+**最后死点（三次收敛 2026-10-02）**：
+1. pbin 毒布局 → 已剥离 ✓
+2. hud.xml CS2 类型 → 引擎版 hud.xml ✓
+3. base_hud.xml 空壳/HudTopLeft → 引擎版子面板 ✓
+4. **当前墙**：CSGOHudRadio 构造时 RequireLoadLayout("hudradio.xml") 失败 →
+   Error 退出。panorama/layout/hud/ 下的元件级布局（hudradio.xml 等几百个）
+   **在 Steam depot 731 的散装文件里**（不在 VPK——已扫 pak01_dir/cstrike_pak/
+   hl2_misc/platform_misc 确认无 panorama/layout），而用户导入的 19GB 包
+   （CSNO 打包版）不含桌面布局散装树（CSNO 触控 fork 不需要）。
+   **panorama/styles 的 css 同样缺失**（styles/hud/hud.css 不存在）。
+
+**资源补充方案（任选）**：
+1. DepotDownloader 补下 depot 731 的 csgo/panorama/ 散装树（布局+css+js）
+2. 从 PC 版 CS:GO 安装目录拷 csgo/panorama/（版本接近 2019.10 即可）
+3. 注意版本匹配：引擎是 2019.10（kisak-strike），布局需同代；CS2 布局的
+   CCSGOTabletPanoLayer 等新面板类型会像 pbin 一样解析失败（但只警告不崩）
 
 **已装机的打点**：State_NewGame 函数体 4 断点（ValidGame/InitGameDLL/
 MapIsValid/Host_NewGame）——状态机真进入该帧时会立即给出断裂位置。

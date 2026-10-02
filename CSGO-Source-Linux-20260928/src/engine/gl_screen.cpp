@@ -84,6 +84,7 @@ extern ConVar demo_debug;
 //-----------------------------------------------------------------------------
 void SCR_BeginLoadingPlaque( const char *levelName /*= NULL*/ )
 {
+	fprintf( stderr, "CSGO_TRACE: SCR_BeginLoadingPlaque enter level=%s\n", levelName ? levelName : "(null)" );
 	if( demo_debug.GetBool() )
 		Msg( "%.2f SCR_BeginLoadingPlaque(%d)\n", Plat_FloatTime(), int( scr_drawloading ) );
 	if ( !scr_drawloading )
