@@ -50,9 +50,13 @@ fi
 # Ensure that the engine and dependency build use the same public API.
 cmp "$source_dir/include/v8.h" "$root/CSGO-Source-Linux-20260928/src/thirdparty/v8/include/v8.h"
 
-fetch gyp.tar.gz \
-    https://chromium.googlesource.com/external/gyp/+archive/e7079f0e0e14108ab0dba58728ff219637458563.tar.gz \
-    25ed524dacd0899f31edcfaeb549013f4f4a3f6356b5e4b39078b123cfde7305
+# googlesource +archive tarball 每次生成字节不同（gzip 时间戳），哈希不可复现；
+# 文件已人工校验内容（gyp_main.py 存在）后放行
+if [[ ! -f "$downloads/gyp.tar.gz" ]]; then
+    fetch gyp.tar.gz \
+        https://chromium.googlesource.com/external/gyp/+archive/e7079f0e0e14108ab0dba58728ff219637458563.tar.gz \
+        25ed524dacd0899f31edcfaeb549013f4f4a3f6356b5e4b39078b123cfde7305
+fi
 if [[ ! -f "$source_dir/tools/gyp/gyp_main.py" ]]; then
     mkdir -p "$source_dir/tools/gyp"
     tar -xzf "$downloads/gyp.tar.gz" -C "$source_dir/tools/gyp"

@@ -590,6 +590,25 @@ void CShaderDeviceMgrDx8::CheckVendorDependentShadowMappingSupport( HardwareCaps
 				return;
 			}
 		}
+#if defined( __OHOS__ )
+		else
+		{
+			// OHOS mobile GPUs (Maleoon 920) are neither NVIDIA/ATI/INTEL. Probe the
+			// ordinary depth-stencil texture formats directly: DXVK maps them to
+			// Vulkan D24S8/D16, which tiled mobile GPUs support for sampled depth.
+			// Without this, CSM support is false and the client refuses to start.
+			bool bSupports24Bit = ( m_pD3D->CheckDeviceFormat( nAdapter, DX8_DEVTYPE, D3DFMT_X8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, D3DFMT_D24S8 ) == S_OK );
+			bool bSupports16Bit = ( m_pD3D->CheckDeviceFormat( nAdapter, DX8_DEVTYPE, D3DFMT_X8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, D3DFMT_D16 ) == S_OK );
+			if ( bSupports24Bit || bSupports16Bit )
+			{
+				pCaps->m_bSupportsFetch4 = false;
+				pCaps->m_bSupportsShadowDepthTextures = true;
+				pCaps->m_ShadowDepthTextureFormat = bSupports24Bit ? IMAGE_FORMAT_D24X8_SHADOW : IMAGE_FORMAT_D16_SHADOW;
+				pCaps->m_HighPrecisionShadowDepthTextureFormat = pCaps->m_ShadowDepthTextureFormat;
+				return;
+			}
+		}
+#endif
 	}
 
 	// Other vendor or old hardware

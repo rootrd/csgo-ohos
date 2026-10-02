@@ -3949,6 +3949,17 @@ namespace dxvk {
 
     enabled.extNonSeamlessCubeMap.nonSeamlessCubeMap = supported.extNonSeamlessCubeMap.nonSeamlessCubeMap;
 
+    // OHOS/Maleoon: 移动 GPU 无桌面 BC 块压缩。把请求的核心位与驱动实报求交，
+    // 缺失格式（DXT）在逐纹理创建时单独失败——引擎继续运行，纹理包走
+    // ASTC/未压缩路径；硬性要求 BC 会让 vkCreateDevice 永远失败。
+    {
+      auto* reqBits = reinterpret_cast<VkBool32*>(&enabled.core.features);
+      const auto* supBits = reinterpret_cast<const VkBool32*>(&supported.core.features);
+      constexpr size_t bitCount = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
+      for (size_t i = 0; i < bitCount; i++)
+        reqBits[i] = reqBits[i] && supBits[i];
+    }
+
     return enabled;
   }
 
