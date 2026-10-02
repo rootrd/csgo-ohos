@@ -1,0 +1,55 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="TeamCounterBG"></Panel>
+		<Panel id="GameTime"></Panel>
+		<Panel id="BombStatus"></Panel>
+		<Panel id="GameScore"></Panel>
+		<Panel id="TimerText"></Panel>
+		<Panel id="BombPlanted"></Panel>
+		<Panel id="BombPlantedLines"></Panel>
+		<Panel id="BombDefused"></Panel>
+		<Panel id="ScoreCT"></Panel>
+		<Panel id="ScoreT"></Panel>
+		<Panel id="AliveBackgroundCT"></Panel>
+		<Panel id="AliveCountCT"></Panel>
+		<Panel id="AliveTextCT"></Panel>
+		<Panel id="AliveSkullCT"></Panel>
+		<Panel id="AliveBackgroundT"></Panel>
+		<Panel id="AliveCountT"></Panel>
+		<Panel id="AliveTextT"></Panel>
+		<Panel id="AliveSkullT"></Panel>
+		<Panel id="JoinPanelBot"></Panel>
+		<Panel id="JoinPanelCT"></Panel>
+		<Panel id="JoinPanelT"></Panel>
+		<Panel id="JoinTextBot"></Panel>
+		<Panel id="JoinPanelParent"></Panel>
+		<Panel id="TeamAll"></Panel>
+		<Panel id="TeamLargeCT"></Panel>
+		<Panel id="TeamLargeT"></Panel>
+		<Panel id="TeamSmallContainerCT"></Panel>
+		<Panel id="TeamSmallContainerT"></Panel>
+		<Panel id="TeamSmallCT__Row1"></Panel>
+		<Panel id="TeamSmallCT__Row2"></Panel>
+		<Panel id="TeamSmallT__Row1"></Panel>
+		<Panel id="TeamSmallT__Row2"></Panel>
+		<Panel id="Visible"></Panel>
+		<Panel id="Invisible"></Panel>
+		<Panel id="AvatarS__ImageBG"></Panel>
+		<Panel id="AvatarImage"></Panel>
+		<Panel id="HealthBar"></Panel>
+		<Panel id="Bot"></Panel>
+		<Panel id="Sound"></Panel>
+		<Panel id="Skull"></Panel>
+		<Panel id="Dominated"></Panel>
+		<Panel id="Nemesis"></Panel>
+		<Panel id="AvatarL__ImageBG"></Panel>
+		<Panel id="PlayerColor"></Panel>
+		<Panel id="PlayerLetter"></Panel>
+		<Panel id="ArsenalProgress"></Panel>
+		<Panel id="ArsenalProgressText"></Panel>
+		<Panel id="ArsenalProgressWeapon"></Panel>
+		<Panel id="ArsenalProgressWeaponIcon"></Panel>
+	</Panel>
+	</Panel>
+</root>

@@ -1,0 +1,11 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="ChatTextEntryBox"></Panel>
+		<Panel id="ChatSendButton"></Panel>
+		<Panel id="ChatHistoryText"></Panel>
+		<Panel id="GotvPanel"></Panel>
+		<Panel id="GotvToggle"></Panel>
+	</Panel>
+	</Panel>
+</root>

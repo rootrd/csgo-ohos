@@ -1,4 +1,5 @@
 <root>
+	<Panel class="WindowRoot" hittest="false">
 	<styles>
 		<include src="file://{resources}/styles/csno_touch_hud.css"></include>
 	</styles>
@@ -20,5 +21,6 @@
 		<CSGOPopupManager id="PopupManager"></CSGOPopupManager>
 		<CSGOTooltipManager id="TooltipManager"></CSGOTooltipManager>
 		<ContextMenuManager id="ContextMenuManager"></ContextMenuManager>
+	</Panel>
 	</Panel>
 </root>

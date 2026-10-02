@@ -1,0 +1,31 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="PlayerAvatar"></Panel>
+		<Panel id="PlayerAvatarColor"></Panel>
+		<Panel id="PlayerAvatarDefault"></Panel>
+		<Panel id="PlayerAvatarDisplayItem"></Panel>
+		<Panel id="Stat_DamageTaken"></Panel>
+		<Panel id="Stat_DamageGiven"></Panel>
+		<Panel id="HudSpecplayer__Stats"></Panel>
+		<Panel id="HotKeyLabelContainer"></Panel>
+		<Panel id="HotKey_ControlBot"></Panel>
+		<Panel id="HotKey_XRay"></Panel>
+		<Panel id="HotKey_CancelReplay"></Panel>
+		<Panel id="HotKey_Arrows"></Panel>
+		<Panel id="HotKey_Camera"></Panel>
+		<Panel id="HotKey_Map"></Panel>
+		<Panel id="HotKey_CameramanOn"></Panel>
+		<Panel id="HotKey_DirectorOn"></Panel>
+		<Panel id="HotKey_ReplayLastKill"></Panel>
+		<Panel id="ItemContainerBG"></Panel>
+		<Panel id="WeaponImage"></Panel>
+		<Panel id="WeaponName"></Panel>
+		<Panel id="DefaultTeamLogo"></Panel>
+		<Panel id="TeamLogo"></Panel>
+		<Panel id="ServerSponserLogos"></Panel>
+		<Panel id="PlayerColorStrip"></Panel>
+		<Panel id="ReplayPlayerTag"></Panel>
+	</Panel>
+	</Panel>
+</root>

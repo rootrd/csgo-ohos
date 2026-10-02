@@ -1,0 +1,27 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="PI_NonRotated"></Panel>
+		<Panel id="PI_FirstRotated"></Panel>
+		<Panel id="Radar"></Panel>
+		<Panel id="Radar__Invisible"></Panel>
+		<Panel id="Radar__Round"></Panel>
+		<Panel id="Radar__Square"></Panel>
+		<Panel id="DirectionArrow"></Panel>
+		<Panel id="RI_BombDefuserPackage"></Panel>
+		<Panel id="BombPlantedIcon"></Panel>
+		<Panel id="BombPlantedIconMedium"></Panel>
+		<Panel id="BombPlantedIconFast"></Panel>
+		<Panel id="PlantedBomb"></Panel>
+		<Panel id="DroppedBomb"></Panel>
+		<Panel id="BombAbove"></Panel>
+		<Panel id="BombBelow"></Panel>
+		<Panel id="CreateBombPack"></Panel>
+		<Panel id="DefuserIconDropped"></Panel>
+		<Panel id="DefuserIconPackage"></Panel>
+		<Panel id="BombZoneA"></Panel>
+		<Panel id="BombZoneB"></Panel>
+		<Panel id="DashboardLabel"></Panel>
+	</Panel>
+	</Panel>
+</root>

@@ -1,0 +1,11 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="VisibleNotices"></Panel>
+		<Panel id="Attacker"></Panel>
+		<Panel id="Victim"></Panel>
+		<Panel id="Assister"></Panel>
+		<Panel id="Weapon"></Panel>
+	</Panel>
+	</Panel>
+</root>

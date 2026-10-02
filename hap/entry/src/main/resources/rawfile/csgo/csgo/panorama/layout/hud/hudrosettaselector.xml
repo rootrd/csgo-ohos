@@ -1,0 +1,24 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="RosettaBGGradient"></Panel>
+		<Panel id="RosettaCountdown"></Panel>
+		<Panel id="RosettaCountdownPie"></Panel>
+		<Panel id="RosettaCountdownTimer"></Panel>
+		<Panel id="RosettaSprayImage"></Panel>
+		<Panel id="RosettaSprayImageBG"></Panel>
+		<Panel id="RosettaSprayTextCount"></Panel>
+		<Panel id="RosettaSprayTextHint"></Panel>
+		<Panel id="RosettaInventory"></Panel>
+		<Panel id="RosettaInventoryItems"></Panel>
+		<Panel id="RosettaQuickSprayToggle"></Panel>
+		<Panel id="RosettaInfo"></Panel>
+		<Panel id="RosettaInfoText"></Panel>
+		<Panel id="RosettaInventoryLeftArrow"></Panel>
+		<Panel id="RosettaInventoryRightArrow"></Panel>
+		<Panel id="InventorySelection"></Panel>
+		<Panel id="InventoryImage"></Panel>
+		<Panel id="InventoryCount"></Panel>
+	</Panel>
+	</Panel>
+</root>

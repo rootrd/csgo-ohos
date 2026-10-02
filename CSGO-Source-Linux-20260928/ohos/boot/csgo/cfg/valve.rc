@@ -1,6 +1,4 @@
-// OHOS: direct map load (bypass the Panorama main menu for the gameplay push).
-// The engine runs this file at startup; +commands from the real command line
-// are unreliable on OHOS (libmain env/file channels get shadowed).
+// OHOS: direct map load via valve.rc (single-queue path, proven safe)
 stuffcmds
-
+map de_dust2
 fps_max 30

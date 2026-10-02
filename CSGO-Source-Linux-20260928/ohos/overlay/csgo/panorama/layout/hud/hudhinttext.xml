@@ -1,0 +1,8 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="HintIcon"></Panel>
+		<Panel id="HintLabel"></Panel>
+	</Panel>
+	</Panel>
+</root>

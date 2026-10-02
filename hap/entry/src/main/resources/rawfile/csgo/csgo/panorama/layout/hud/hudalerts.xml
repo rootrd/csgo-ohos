@@ -1,0 +1,7 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="AlertText"></Panel>
+	</Panel>
+	</Panel>
+</root>

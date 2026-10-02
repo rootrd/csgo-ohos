@@ -1,0 +1,22 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="DefuseIcon"></Panel>
+		<Panel id="AmmoContent"></Panel>
+		<Panel id="AmmoTextClip"></Panel>
+		<Panel id="AmmoTextTotal"></Panel>
+		<Panel id="AmmoBurstIcons"></Panel>
+		<Panel id="WeaponPanelBottomBG"></Panel>
+		<Panel id="KillCountIcons"></Panel>
+		<Panel id="KillCountText"></Panel>
+		<Panel id="KillCount"></Panel>
+		<Panel id="KillCountTextIcon"></Panel>
+		<Panel id="KillEaterContent"></Panel>
+		<Panel id="KillEaterCount"></Panel>
+		<Panel id="AmmoAnim"></Panel>
+		<Panel id="AmmoAnimBullets"></Panel>
+		<Panel id="AmmoAnimShells"></Panel>
+		<Panel id="AmmoAnimGrenades"></Panel>
+	</Panel>
+	</Panel>
+</root>

@@ -2,6 +2,7 @@
 	<styles>
 		<include src="file://{resources}/styles/csno_boot.css" />
 	</styles>
+	<Panel class="WindowRoot" hittest="false">
 	<scripts>
 		<include src="file://{resources}/scripts/csno_bridge.js" />
 		<include src="file://{resources}/scripts/csno_boot.js" />
@@ -19,4 +20,5 @@
 		<Panel id="MainMenuVanityParent" hittest="false" />
 		<Panel id="MainMenuInput" hittest="false" />
 	</CSGOMainMenu>
+	</Panel>
 </root>

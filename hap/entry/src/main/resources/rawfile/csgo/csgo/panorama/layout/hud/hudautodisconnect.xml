@@ -1,0 +1,9 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="TopLabel"></Panel>
+		<Panel id="BottomLabel"></Panel>
+		<Panel id="TimerIcon"></Panel>
+	</Panel>
+	</Panel>
+</root>

@@ -1,0 +1,39 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="Crosshair"></Panel>
+		<Panel id="CrosshairObserver"></Panel>
+		<Panel id="TopArc"></Panel>
+		<Panel id="BottomArc"></Panel>
+		<Panel id="LeftArc"></Panel>
+		<Panel id="RightArc"></Panel>
+		<Panel id="TopPip"></Panel>
+		<Panel id="BottomPip"></Panel>
+		<Panel id="LeftPip"></Panel>
+		<Panel id="RightPip"></Panel>
+		<Panel id="TopPipBlack"></Panel>
+		<Panel id="BottomPipBlack"></Panel>
+		<Panel id="LeftPipBlack"></Panel>
+		<Panel id="RightPipBlack"></Panel>
+		<Panel id="FriendCrosshair"></Panel>
+		<Panel id="TargetID"></Panel>
+		<Panel id="VisiblePlayerIDs"></Panel>
+		<Panel id="UnusedPlayerIDs"></Panel>
+		<Panel id="ContentParent"></Panel>
+		<Panel id="Content"></Panel>
+		<Panel id="ContentTrans"></Panel>
+		<Panel id="Name"></Panel>
+		<Panel id="NameBG"></Panel>
+		<Panel id="Weapons"></Panel>
+		<Panel id="WeaponDefuser"></Panel>
+		<Panel id="WeaponC4"></Panel>
+		<Panel id="WeaponGrenades"></Panel>
+		<Panel id="WeaponPrimary"></Panel>
+		<Panel id="ArrowFriendIcon"></Panel>
+		<Panel id="ArrowIcon"></Panel>
+		<Panel id="ArrowIconBorder"></Panel>
+		<Panel id="ChatIcon"></Panel>
+		<Panel id="DefusingIcon"></Panel>
+	</Panel>
+	</Panel>
+</root>

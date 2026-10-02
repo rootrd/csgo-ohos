@@ -1,0 +1,7 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="MoneyBG"></Panel>
+	</Panel>
+	</Panel>
+</root>

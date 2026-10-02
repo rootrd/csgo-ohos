@@ -1,0 +1,6 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+	</Panel>
+	</Panel>
+</root>

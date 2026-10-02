@@ -16,12 +16,17 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/stat.h>
 #include <fstream>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <sstream>
 #include <unistd.h>
+#include <dlfcn.h>
+#include <unwind.h>
 #include <vector>
 
 int runSourceEngine(int argc, char **argv, const char *resourceRoot, const char *errorPath);
@@ -517,6 +522,54 @@ void initializePaths(bool sourceResources) {
 
 void androidEngineLog(const char *message) { log("%s", message); }
 
+// ---- OHOS: 静默 SIGSEGV/SIGABRT 自捕栈（faultlogger 无 shell 权限）----
+// 崩溃点栈写入 logs/crash_bt.txt（模块+偏移），配合 llvm-addr2line 定位。
+static int g_crashFd = -1;
+
+static _Unwind_Reason_Code crashFrame(_Unwind_Context *context, void *) {
+    uintptr_t pc = _Unwind_GetIP(context);
+    if (!pc) return _URC_END_OF_STACK;
+    pc -= 4;
+    Dl_info info{};
+    char line[512];
+    if (dladdr(reinterpret_cast<void *>(pc), &info) && info.dli_fbase) {
+        snprintf(line, sizeof(line), "  pc %012llx %s (%s)\n",
+                 static_cast<unsigned long long>(pc - reinterpret_cast<uintptr_t>(info.dli_fbase)),
+                 info.dli_fname, info.dli_sname ? info.dli_sname : "?");
+    } else {
+        snprintf(line, sizeof(line), "  pc %012llx <unknown>\n",
+                 static_cast<unsigned long long>(pc));
+    }
+    if (g_crashFd >= 0) {
+        if (write(g_crashFd, line, strlen(line)) < 0) { /* best effort */ }
+    }
+    return _URC_NO_REASON;
+}
+
+static void crashHandler(int sig) {
+    if (g_crashFd >= 0) {
+        char head[64];
+        snprintf(head, sizeof(head), "=== SIGNAL %d ===\n", sig);
+        if (write(g_crashFd, head, strlen(head)) < 0) { /* best effort */ }
+        _Unwind_Backtrace(crashFrame, nullptr);
+        fsync(g_crashFd);
+    }
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void installCrashHandler(const char *logsDir) {
+    std::string path = std::string(logsDir) + "/crash_bt.txt";
+    g_crashFd = open(path.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0666);
+    struct sigaction sa{};
+    sa.sa_handler = crashHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_ONSTACK;
+    sigaction(SIGSEGV, &sa, nullptr);
+    sigaction(SIGABRT, &sa, nullptr);
+    sigaction(SIGBUS, &sa, nullptr);
+}
+
 int main(int argc, char** argv) {
     int seconds = 0, result = 0;
     bool graphicsProbe = false, vulkanProbe = false, vulkanValidation = false;
@@ -559,6 +612,8 @@ int main(int argc, char** argv) {
     SDL_Window* window = nullptr;
     try {
         initializePaths(!vulkanProbe);
+        // 崩溃自捕：logs/crash_bt.txt 常驻追加，SIGSEGV/ABRT/BUS 时写模块栈
+        installCrashHandler(std::filesystem::path(errorPath).parent_path().string().c_str());
         if (vulkanProbe) {
             if (!SDL_Init(SDL_INIT_VIDEO)) throw std::runtime_error(SDL_GetError());
             window = SDL_CreateWindow("CSGO native Vulkan diagnostic", 1280, 720,

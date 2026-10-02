@@ -1,0 +1,11 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="Damage"></Panel>
+		<Panel id="DamageTop"></Panel>
+		<Panel id="DamageRight"></Panel>
+		<Panel id="DamageBottom"></Panel>
+		<Panel id="DamageLeft"></Panel>
+	</Panel>
+	</Panel>
+</root>

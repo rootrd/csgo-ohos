@@ -1,0 +1,29 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="FreezePanel"></Panel>
+		<Panel id="Avatar"></Panel>
+		<Panel id="AvatarDefaultT"></Panel>
+		<Panel id="AvatarDefaultCT"></Panel>
+		<Panel id="AvatarHealthBar"></Panel>
+		<Panel id="DescriptionText"></Panel>
+		<Panel id="DamageTaken"></Panel>
+		<Panel id="DamageGiven"></Panel>
+		<Panel id="ItemContainer"></Panel>
+		<Panel id="WeaponImage"></Panel>
+		<Panel id="NavigationCancel"></Panel>
+		<Panel id="NavigationSnapshot"></Panel>
+		<Panel id="NavigationReplay"></Panel>
+		<Panel id="FreezePanelSS"></Panel>
+		<Panel id="AvatarSS"></Panel>
+		<Panel id="AvatarDefaultTSS"></Panel>
+		<Panel id="AvatarDefaultCTSS"></Panel>
+		<Panel id="AvatarHealthBarSS"></Panel>
+		<Panel id="DescriptionTextSS"></Panel>
+		<Panel id="ItemContainerSS"></Panel>
+		<Panel id="WeaponImageSS"></Panel>
+		<Panel id="FreezeCancel"></Panel>
+		<Panel id="SurvivalEndOfMatch"></Panel>
+	</Panel>
+	</Panel>
+</root>

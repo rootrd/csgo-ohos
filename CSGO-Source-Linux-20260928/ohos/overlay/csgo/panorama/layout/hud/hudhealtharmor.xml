@@ -1,0 +1,11 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="HealthBar"></Panel>
+		<Panel id="ArmorBar"></Panel>
+		<Panel id="HudHealthArmorBG"></Panel>
+		<Panel id="HealthBar_Left"></Panel>
+		<Panel id="ArmorBar_Left"></Panel>
+	</Panel>
+	</Panel>
+</root>

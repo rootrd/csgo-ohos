@@ -1,0 +1,35 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel hittest="false">
+		<Panel id="Title"></Panel>
+		<Panel id="Surrender"></Panel>
+		<Panel id="TeamLogo"></Panel>
+		<Panel id="MVP"></Panel>
+		<Panel id="MVPWinnerName"></Panel>
+		<Panel id="MVPAvatar"></Panel>
+		<Panel id="MVPGunGameAvatars"></Panel>
+		<Panel id="MVPAvatar2nd"></Panel>
+		<Panel id="MVPAvatar3rd"></Panel>
+		<Panel id="MVPMusicKit"></Panel>
+		<Panel id="MVPMusicKitAnim"></Panel>
+		<Panel id="MVPMusicKitStatTrak"></Panel>
+		<Panel id="MVPMusicKitName"></Panel>
+		<Panel id="MVPMusicKitInfo"></Panel>
+		<Panel id="MVPMusicKitIcon"></Panel>
+		<Panel id="Funfact"></Panel>
+		<Panel id="FunFactText"></Panel>
+		<Panel id="Medals"></Panel>
+		<Panel id="MedalsContainer"></Panel>
+		<Panel id="MedalStats"></Panel>
+		<Panel id="MedalStatsText"></Panel>
+		<Panel id="MedalStatsIcon"></Panel>
+		<Panel id="RankUp"></Panel>
+		<Panel id="GunGameExtra"></Panel>
+		<Panel id="GunGameExtraTitle"></Panel>
+		<Panel id="GunGameExtraWeaponName"></Panel>
+		<Panel id="GunGameExtraWeaponIcon"></Panel>
+		<Panel id="GunGameExtraGrenadeIcon"></Panel>
+		<Panel id="Progress"></Panel>
+	</Panel>
+	</Panel>
+</root>

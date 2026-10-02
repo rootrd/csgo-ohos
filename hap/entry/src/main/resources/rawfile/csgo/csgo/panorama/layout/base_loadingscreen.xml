@@ -13,4 +13,5 @@
 		<ProgressBar id="ProgressBarSecondary" />
 		<Label id="ProgressSecondaryStatusText" text="" />
 	</CSGOLoadingScreen>
+	</Panel>
 </root>

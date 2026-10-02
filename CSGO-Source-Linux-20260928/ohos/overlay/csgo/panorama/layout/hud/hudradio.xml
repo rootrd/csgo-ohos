@@ -1,0 +1,7 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<Panel id="RadioPanel">
+		<Panel id="RadioPanelBG"></Panel>
+	</Panel>
+	</Panel>
+</root>
