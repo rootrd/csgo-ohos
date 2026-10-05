@@ -63,6 +63,9 @@ export default class EntryAbility extends UIAbility {
       navigationBarColor: '#00000000',
       statusBarColor: '#00000000'
     })
+    // 彻底隐藏状态栏/导航条（只改颜色仍会占位：实测上方白条=状态栏、下方白条=导航条；
+    // 隐藏后窗口区域与交换链 buffer（2848x1276）完全一致，几何错位一并消除）
+    mainWindow.setWindowSystemBarEnable([])
     // 联调期永久不息屏：引擎长时间加载与游戏运行都不允许系统灭屏
     mainWindow.setWindowKeepScreenOn(true)
     windowStage.loadContent('pages/Index', (err) => {

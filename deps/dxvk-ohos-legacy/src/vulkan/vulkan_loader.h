@@ -12,27 +12,6 @@
 // Legacy's bundled vulkan.h predates OHOS; use the pinned NDK extension
 // declarations without replacing/upgrading the Vulkan core headers.
 #include <vulkan/vulkan_ohos.h>
-
-// OHOS 移植补丁（可复用资产，知识库《鸿蒙Vulkan上屏链路》四项目交叉验证）：
-// Maleoon 上 vkCreateSurfaceOHOS 存在"present 成功但内容不上屏"坑（合成器不按
-// 显示节拍回收缓冲 → 应用侧表现为 present/完成延迟）。正解 = 改走 Android 入口
-// vkCreateAndroidSurfaceKHR（OHNativeWindow 与该入口 ABI 兼容）。我们的头集不含
-// vulkan_android.h，自带最小声明。
-#ifndef VK_OHOS_ANDROID_SURFACE_DECLARED
-#define VK_OHOS_ANDROID_SURFACE_DECLARED
-struct ANativeWindow;
-typedef struct VkAndroidSurfaceCreateInfoKHR {
-    VkStructureType         sType;
-    const void*             pNext;
-    VkFlags                 flags;
-    struct ANativeWindow*   window;
-} VkAndroidSurfaceCreateInfoKHR;
-typedef VkResult (VKAPI_PTR *PFN_vkCreateAndroidSurfaceKHR)(
-    VkInstance                                  instance,
-    const VkAndroidSurfaceCreateInfoKHR*        pCreateInfo,
-    const VkAllocationCallbacks*                pAllocator,
-    VkSurfaceKHR*                               pSurface);
-#endif
 #endif
 
 #define VULKAN_FN(name) \
@@ -158,7 +137,6 @@ namespace dxvk::vk {
 
     #if defined(DXVK_NATIVE_OHOS)
     VULKAN_FN(vkCreateSurfaceOHOS);
-    VULKAN_FN(vkCreateAndroidSurfaceKHR);
     #endif
     
     VULKAN_FN(vkDestroySurfaceKHR);

@@ -178,14 +178,23 @@ int runSourceEngine(int argc, char **argv, const char *resourceRoot, const char 
         }
     }
 #ifdef __OHOS__
-    // DXVK's OHOS monitor stubs read the real display size from here.
+    // DXVK's OHOS monitor stubs read the display size from here; the engine's
+    // D3D9 device/swapchain sizing follows it too. 必须与 -w/-h 的横屏归一化
+    // 一致：OHOS 面板原生是竖屏（如 1276x2848），直接透传会让 D3D9 交换链按
+    // 竖屏建 buffer → 合成器旋转/留白/条纹撕裂（实测）。历史轮次带 render=
+    // 档位时恰好绕过了这个不一致，故只在无 render= 时显形。
     {
         char displaySize[64];
         if (renderW && renderH)
             snprintf(displaySize, sizeof(displaySize), "%dx%d", renderW, renderH);
         else
-            snprintf(displaySize, sizeof(displaySize), "%dx%d", mode->w, mode->h);
+            snprintf(displaySize, sizeof(displaySize), "%dx%d",
+                mode->w > mode->h ? mode->w : mode->h,
+                mode->w > mode->h ? mode->h : mode->w);
         setenv("CSGO_OHOS_DISPLAY", displaySize, 1);
+        // 决定性追踪：mode 原始值 → 归一化后的 env（DXVK monitor 会读它建交换链）
+        fprintf(stderr, "CSGO_TRACE: display mode raw=%dx%d -> CSGO_OHOS_DISPLAY=%s\n",
+            mode->w, mode->h, displaySize);
     }
     // Create the game window NOW: the XComponent surface already exists (SDL_main
     // is launched from SurfaceCreated), and materialsystem's device/swapchain

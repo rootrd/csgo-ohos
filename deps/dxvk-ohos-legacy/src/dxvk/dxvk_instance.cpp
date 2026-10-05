@@ -94,7 +94,6 @@ namespace dxvk {
       &insExtensions.khrSurface,
       #if defined(DXVK_NATIVE_OHOS)
       &insExtensions.ohosSurface,
-      &insExtensions.androidSurface,
       #endif
     }};
 

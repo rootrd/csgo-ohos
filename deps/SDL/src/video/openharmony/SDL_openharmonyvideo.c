@@ -88,6 +88,16 @@ void SDL_OpenHarmonyVideoSurfaceCreated(void *component, void *window)
     SDL_assert(native_xcomponent == NULL);  // right now we assume one surface, one window.
     native_xcomponent = (OH_NativeXComponent *) component;
     native_window = window;
+
+    // 帧率协商（OHOS 原生，LTPO 面板关键）：向系统声明本图层期望的帧率范围。
+    // 不声明时，RenderService 会把该图层按"静止内容"对待并走 LTPO 省电降频，
+    // 刷新率可掉到面板下限（1Hz）——表现为整机 ~1fps 幻灯片、CPU 空闲、无发热、
+    // present/FIFO 全部被压到 1Hz 节拍（本移植实测：正是该症状）。
+    {
+        OH_NativeXComponent_ExpectedRateRange range = { 60, 120, 120 };
+        int32_t ret = OH_NativeXComponent_SetExpectedFrameRateRange(native_xcomponent, &range);
+        SDL_Log("OpenHarmony: SetExpectedFrameRateRange(60,120,120) -> %d", (int) ret);
+    }
 }
 
 static bool OPENHARMONY_SuspendScreenSaver(SDL_VideoDevice *_this)
