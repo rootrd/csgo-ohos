@@ -1,7 +1,39 @@
 <root>
-	<Panel class="WindowRoot" hittest="false">
-	<Panel id="RadioPanel">
-		<Panel id="RadioPanelBG"></Panel>
-	</Panel>
-	</Panel>
+	<styles>
+		<include src="file://{resources}/styles/base.css" />
+		<include src="file://{resources}/styles/hud/hudradio.css" />
+	</styles>
+
+	<CSGOHudRadio hittest="false">
+
+		                         
+		<Panel id="RadioPanelBG" />
+
+		                     
+		<Panel id="RadioPanel">
+
+			                                                 
+
+			    
+			    	
+			                    
+				                                                
+				                        
+				                        
+				                        
+			        
+
+			                    
+				                                              
+				                        
+				                        
+				                        
+			        
+
+			   
+			   
+			
+		</Panel>
+
+	</CSGOHudRadio>
 </root>

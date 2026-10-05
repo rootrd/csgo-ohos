@@ -1,17 +1,9 @@
 <root>
 	<styles>
+		<include src="file://{resources}/styles/base.css" />
 	</styles>
-	<!-- OHOS 移植：CSNO 包的 base_loadingscreen.xml 是空壳（触控 UI 方案禁用了
-	     桌面加载屏），而引擎 CSGOLoadingScreen 会在其中查找进度条等子面板。
-	     提供最小可解析版本（FindChild 系为软查找，缺了不致命，但空壳会破坏
-	     根面板类型 CSGOLoadingScreen 的创建）。 -->
-	<CCSGO_LoadingScreen hittest="false">
-		<Panel id="BackgroundMapImage" hittest="false" />
-		<Panel id="BackgroundMapImageBlur" hittest="false" />
-		<ProgressBar id="ProgressBar" />
-		<Label id="ProgressStatusText" text="" />
-		<ProgressBar id="ProgressBarSecondary" />
-		<Label id="ProgressSecondaryStatusText" text="" />
-	</CSGOLoadingScreen>
+
+	<Panel class="WindowRoot" hittest="false">
+		<CSGOLoadingScreen id="LoadingScreen" />
 	</Panel>
 </root>

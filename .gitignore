@@ -48,6 +48,12 @@ deps/glslang/lib/
 deps/glslang/bin/
 CSGO-Source-Linux-20260928/发给同事.md
 
+# ── 本地/代理状态与取证产物 ──
+.zcode/
+night-logs/
+# 上游参考克隆（dxvk-ohos-legacy HEAD，供三方合并用；见知识库 06）
+deps/dxvk-ohos-upstream-ref/
+
 # Python build/test caches
 __pycache__/
 *.pyc

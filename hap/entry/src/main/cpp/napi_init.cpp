@@ -37,12 +37,18 @@ static napi_value SetGameRoot(napi_env env, napi_callback_info info) {
     // FcFontList 在 vgui 字体初始化时打转。只给游戏自带字体目录。
     setenv("FONTCONFIG_FILE", (g_gameRoot + "/fontconfig/fonts.conf").c_str(), 1);
     mkdir(g_gameRoot.c_str(), 0755);
-    // 联调注入通道：files/cmdline.txt（| 分隔）→ CSGO_OHOS_ARGS → 引擎命令行
-    // 追加（engine_startup.cpp）。hdc 无法设置沙箱进程环境变量，用文件桥：
-    //   hdc shell "echo '+map|de_dust2' > .../files/cmdline.txt"
+    // 联调注入通道：cmdline.txt（| 分隔）→ CSGO_OHOS_ARGS → 引擎命令行追加。
+    // 首选游戏根内的 csgo/cmdline.txt（随 HAP rawfile 打包/随沙箱同步，可维护）；
+    // files/cmdline.txt 是 10-02 遗留的旧桥（hdc 已写不进沙箱），仅在首选缺失时兜底，
+    // 否则陈旧的 +map|de_dust2 会静默覆盖真实配置（踩过的坑）。
     {
-        std::string cmdPath = g_filesDir + "/cmdline.txt";
+        std::string cmdPath = g_gameRoot + "/csgo/cmdline.txt";
         FILE* f = fopen(cmdPath.c_str(), "r");
+        if (!f) {
+            cmdPath = g_filesDir + "/cmdline.txt";
+            f = fopen(cmdPath.c_str(), "r");
+            if (f) OH_LOG_WARN(LOG_APP, "cmdline: fallback to legacy %{public}s", cmdPath.c_str());
+        }
         if (f) {
             char buf[1024] = {0};
             size_t n = fread(buf, 1, sizeof(buf) - 1, f);
@@ -50,8 +56,10 @@ static napi_value SetGameRoot(napi_env env, napi_callback_info info) {
             while (n && (buf[n-1] == '\n' || buf[n-1] == '\r')) buf[--n] = 0;
             if (n) {
                 setenv("CSGO_OHOS_ARGS", buf, 1);
-                OH_LOG_INFO(LOG_APP, "cmdline inject: %{public}s", buf);
+                OH_LOG_INFO(LOG_APP, "cmdline inject(%{public}s): %{public}s", cmdPath.c_str(), buf);
             }
+        } else {
+            OH_LOG_WARN(LOG_APP, "cmdline: no file at %{public}s", cmdPath.c_str());
         }
     }
     OH_LOG_INFO(LOG_APP, "setGameRoot: %{public}s | files=%{public}s", g_gameRoot.c_str(), g_filesDir.c_str());
