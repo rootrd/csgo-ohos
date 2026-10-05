@@ -1,18 +1,9 @@
 <root>
 	<styles>
+		<include src="file://{resources}/styles/base.css" />
 	</styles>
+
 	<Panel class="WindowRoot" hittest="false">
-		<Panel id="HudTopLeft"></Panel>
-		<Panel id="HudTopCenter"></Panel>
-		<Panel id="HudTopRight"></Panel>
-		<Panel id="HudBottomRight"></Panel>
-		<Panel id="HudBottomCenter"></Panel>
-		<Panel id="HudLowerLeft"></Panel>
-		<CSGOHudRadio id="HudRadio"></CSGOHudRadio>
-		<CSGOHudTeamCounter id="HudTeamCounter"></CSGOHudTeamCounter>
-		<CSGOHudBlurTarget id="HudBlur"></CSGOHudBlurTarget>
-		<CSGOPopupManager id="PopupManager"></CSGOPopupManager>
-		<CSGOTooltipManager id="TooltipManager"></CSGOTooltipManager>
-		<ContextMenuManager id="ContextMenuManager"></ContextMenuManager>
+		<CSGOHud id="Hud" />
 	</Panel>
 </root>

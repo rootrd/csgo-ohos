@@ -21,6 +21,7 @@
 #include "cdll_engine_int.h"
 #include "tier0/vprof.h"
 #include "tier0/icommandline.h"
+#include "tier0/platform.h"
 #include "filesystem_engine.h"
 #include "zone.h"
 #include "iengine.h"
@@ -794,7 +795,8 @@ void CHostState::FrameUpdate( float time )
 		int oldState = m_currentState;
 
 		// execute the current state (and transition to the next state if not in HS_RUN)
-		fprintf( stderr, "CSGO_TRACE: HostStateFrame state=%d\n", m_currentState );
+		// t= 为墙钟秒（Plat_FloatTime），供离线算每帧间隔/帧率
+		fprintf( stderr, "CSGO_TRACE: HostStateFrame state=%d t=%.3f\n", m_currentState, Plat_FloatTime() );
 		switch( m_currentState )
 		{
 		case HS_NEW_GAME:

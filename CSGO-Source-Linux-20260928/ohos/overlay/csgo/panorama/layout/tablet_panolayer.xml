@@ -1,0 +1,10 @@
+<root>
+
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+		<include src="file://{resources}/styles/tablet_panolayer.css" />
+	</styles>
+	
+	
+	
+</root>

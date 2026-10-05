@@ -445,6 +445,16 @@ public:
 		for ( int i=soundemitterbase->First(); i != soundemitterbase->InvalidIndex(); i=soundemitterbase->Next( i ) )
 		{
 			CSoundParametersInternal *pParams = soundemitterbase->InternalGetParametersForSound( i );
+#if defined( __OHOS__ )
+			// OHOS 防御：实测服务器进入地图关卡初始化（LevelInitPreEntity）时有条目
+			// 取出空参数（音效脚本部分缺失的场景），原实现直接解引用空指针崩溃
+			// （csgo: PreloadSounds → ShouldPreload，si_addr=0x24）。跳过并记录。
+			if ( !pParams )
+			{
+				fprintf( stderr, "CSGO_TRACE: PreloadSounds NULL params at index %d\n", i );
+				continue;
+			}
+#endif
 			if ( pParams->ShouldPreload() )
 			{
 				InternalPrecacheWaves( i );

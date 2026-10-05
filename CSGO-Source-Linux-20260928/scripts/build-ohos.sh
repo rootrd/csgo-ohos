@@ -207,21 +207,41 @@ package_hap() {
     rm -rf "$hap_dir/entry/build/default/intermediates"
     rm -rf "$hap_dir/entry/build/default/outputs"
 
-    # 优先用 commandline-tools 的 hvigorw（无需 DevEco）；回退工程内 wrapper
-    local hvigorw="$CLI_TOOLS/bin/hvigorw"
-    [[ -f "$hvigorw" ]] || hvigorw="$hap_dir/hvigorw"
-    if [[ ! -f "$hvigorw" ]]; then
-        echo "[csgo-ohos]   hvigorw not found - use DevEco Studio to build/sign"
-        echo "[csgo-ohos]   HAP project path: $hap_dir"
-        return 0
-    fi
+    # 优先用 commandline-tools 的 hvigorw（无需 DevEco）；回退工程内 wrapper。
+    # 注意：Git Bash 下 bin/hvigorw 外层 wrapper 会把内层路径变成 POSIX 形式
+    # （/e/... ），Windows node 解析成 <盘>:\e\... 直接 MODULE_NOT_FOUND——
+    # 因此优先直接用 node.exe 调 hvigor/bin/hvigorw.js（路径天然是 Windows 形式）。
+    local hvigorw_js="$CLI_TOOLS/hvigor/bin/hvigorw.js"
+    local node_bin
+    node_bin="$(command -v node 2>/dev/null || true)"
+    [[ -n "$node_bin" ]] || node_bin="/c/Program Files/nodejs/node.exe"
+    [[ -f "$node_bin" ]] || node_bin="$CLI_TOOLS/tool/node/bin/node.exe"
+    if [[ -f "$hvigorw_js" && -f "$node_bin" ]]; then
+        export JAVA_HOME
+        # PATH 里的 Java 必须是 POSIX 形式：hvigor 的 node 进程 spawn java 按 PATH 查找，
+        # 混入 "C:\...\jbr/bin" 这类混合分隔符路径会 ENOENT（PackageHap 报 00308018）。
+        # System32 必须在 PATH：es2abc 经 cmd.exe 拉起（WSL 互操作环境缺它会 ENOENT）。
+        # PATH 条目不能带 "/.."（node 子进程 spawn 会 ENOENT，已实测）
+        local node_dir
+        node_dir="$(dirname -- "$node_bin")"
+        export PATH="$node_dir:/c/Program Files/Huawei/DevEco Studio/jbr/bin:/c/windows/system32:/c/windows:$PATH"
+        "$node_bin" "$hvigorw_js" --mode module -p product=default assembleHap --no-daemon
+    else
+        local hvigorw="$CLI_TOOLS/bin/hvigorw"
+        [[ -f "$hvigorw" ]] || hvigorw="$hap_dir/hvigorw"
+        if [[ ! -f "$hvigorw" ]]; then
+            echo "[csgo-ohos]   hvigorw not found - use DevEco Studio to build/sign"
+            echo "[csgo-ohos]   HAP project path: $hap_dir"
+            return 0
+        fi
 
-    export JAVA_HOME
-    # PATH 里的 Java 必须是 POSIX 形式：hvigor 的 node 进程 spawn java 按 PATH 查找，
-    # 混入 "C:\...\jbr/bin" 这类混合分隔符路径会 ENOENT（PackageHap 报 00308018）
-    export PATH="$CLI_TOOLS/bin:$CLI_TOOLS/tool/node/bin:/c/Program Files/Huawei/DevEco Studio/jbr/bin:$PATH"
-    chmod +x "$hvigorw"
-    "$hvigorw" --mode module -p product=default assembleHap --no-daemon
+        export JAVA_HOME
+        # PATH 里的 Java 必须是 POSIX 形式：hvigor 的 node 进程 spawn java 按 PATH 查找，
+        # 混入 "C:\...\jbr/bin" 这类混合分隔符路径会 ENOENT（PackageHap 报 00308018）
+        export PATH="$CLI_TOOLS/bin:$CLI_TOOLS/tool/node/bin:/c/Program Files/Huawei/DevEco Studio/jbr/bin:$PATH"
+        chmod +x "$hvigorw"
+        "$hvigorw" --mode module -p product=default assembleHap --no-daemon
+    fi
 
     local hap_out="$hap_dir/entry/build/default/outputs/default"
     local hap_file

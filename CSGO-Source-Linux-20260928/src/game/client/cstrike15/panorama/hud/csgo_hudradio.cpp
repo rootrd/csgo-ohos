@@ -337,6 +337,3 @@ bool CCSGO_HudRadio::OnKeyDown( const panorama::KeyData_t &unichar )
 
 	return false;
 }
-// OHOS: register the radio HUD panel type so base_hud.xml can create it
-#include "tier0/platform.h"
-PANEL_FACTORY( CCSGO_HudRadio, CCSGO_HudRadio, panorama::CPanel2D )

@@ -1,0 +1,26 @@
+<root>
+	<Panel class="WindowRoot" hittest="false">
+	<styles>
+		<include src="file://{resources}/styles/csno_touch_hud.css"></include>
+	</styles>
+	<scripts>
+		<include src="file://{resources}/scripts/csno_touch_hud.js"></include>
+	</scripts>
+	<Panel id="CSGOHud" hittest="false">
+		<CSGOHudChat id="HudChat"></CSGOHudChat>
+		<Panel id="CsnoTouchHud" class="csno-hud-root" hittest="false" hittestchildren="false"></Panel>
+		<Panel id="HudTopLeft"></Panel>
+		<Panel id="HudTopCenter"></Panel>
+		<Panel id="HudTopRight"></Panel>
+		<Panel id="HudBottomRight"></Panel>
+		<Panel id="HudBottomCenter"></Panel>
+		<Panel id="HudLowerLeft"></Panel>
+		<CSGOHudRadio id="HudRadio"></CSGOHudRadio>
+		<CSGOHudTeamCounter id="HudTeamCounter"></CSGOHudTeamCounter>
+		<CSGOHudBlurTarget id="HudBlur"></CSGOHudBlurTarget>
+		<CSGOPopupManager id="PopupManager"></CSGOPopupManager>
+		<CSGOTooltipManager id="TooltipManager"></CSGOTooltipManager>
+		<ContextMenuManager id="ContextMenuManager"></ContextMenuManager>
+	</Panel>
+	</Panel>
+</root>

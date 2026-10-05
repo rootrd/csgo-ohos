@@ -8495,7 +8495,25 @@ const char *CUIEngine::GetApplicationInstallPath()
 
 	return m_strAppInstallPath.String();
 #else
-	return "";
+	// OHOS 移植修复：SOURCE2 分支原实现直接返回 ""——所有以安装路径为基的相对
+	// 资源解析都会拿到"空基目录"：CFileResource::Set 按 0 长度基目录分配缓冲，
+	// 进而落入 V_MakeAbsolutePath 的 getcwd 分支（沙箱 cwd 路径过长 + 小缓冲 =
+	// ERANGE）→ Plat_FatalError（实测：加载匾雷达图 de_dust2_radar.dds 触发）。
+	// 返回引擎启动时注入的游戏资源根（绝对路径），相对路径即以此为基解析。
+	if ( m_strAppInstallPath.IsEmpty() )
+	{
+		const char *pszRoot = getenv( "CSGO_OHOS_GAME_ROOT" );
+		if ( pszRoot && pszRoot[0] && pszRoot[0] == '/' )
+		{
+			m_strAppInstallPath = pszRoot;
+			fprintf( stderr, "CSGO_TRACE: GetApplicationInstallPath -> %s (env)\n", pszRoot );
+		}
+		else
+		{
+			fprintf( stderr, "CSGO_TRACE: GetApplicationInstallPath env missing (root empty)\n" );
+		}
+	}
+	return m_strAppInstallPath.String();
 #endif
 }
 

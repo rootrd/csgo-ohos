@@ -1,0 +1,17 @@
+<root>
+	<styles>		
+		<include src="file://{resources}/styles/gamestyles.css" />
+	</styles>
+
+	<Panel class="ContextMenu" tabindex="auto" selectionpos="auto" >
+		<Panel id="ContextMenuBody" class="ContextMenuBody" childfocusonhover="true" >
+
+		                                                                      
+		                                                      
+			                              
+		         		
+		   
+
+		</Panel>
+	</Panel>
+</root>

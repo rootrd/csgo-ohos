@@ -3329,6 +3329,7 @@ void CMDLCache::BreakFrameLock( bool bModels, bool bMesh, bool bAnimBlock )
 			{
 				m_nModelCacheFrameLocks++;
 			} while ( m_pModelCacheSection->EndFrameLocking() );
+			fprintf( stderr, "CSGO_TRACE: BreakFrameLock models=%d\n", m_nModelCacheFrameLocks );
 		}
 
 	}
@@ -3343,6 +3344,7 @@ void CMDLCache::BreakFrameLock( bool bModels, bool bMesh, bool bAnimBlock )
 			{
 				m_nMeshCacheFrameLocks++;
 			} while ( m_pMeshCacheSection->EndFrameLocking() );
+			fprintf( stderr, "CSGO_TRACE: BreakFrameLock mesh=%d\n", m_nMeshCacheFrameLocks );
 		}
 	}
 
@@ -3356,6 +3358,7 @@ void CMDLCache::BreakFrameLock( bool bModels, bool bMesh, bool bAnimBlock )
 			{
 				m_nAnimBlockCacheFrameLocks++;
 			} while ( m_pAnimBlocksCacheSection->EndFrameLocking() );
+			fprintf( stderr, "CSGO_TRACE: BreakFrameLock animblock=%d\n", m_nAnimBlockCacheFrameLocks );
 		}
 	}
 }
@@ -3424,13 +3427,16 @@ void CMDLCache::FinishPendingLoads()
 //-----------------------------------------------------------------------------
 void CMDLCache::BeginMapLoad()
 {
+	fprintf( stderr, "CSGO_TRACE: BeginMapLoad enter\n" );
 	BreakFrameLock();
+	fprintf( stderr, "CSGO_TRACE: BeginMapLoad frame lock broken\n" );
 
 	studiodata_t *pStudioData;
 
 	m_ModelSwapper.LatchEffectiveGPULevel();
 
 	// Unlock prior map MDLs prior to load
+	int nLockedHdrs = 0, nLockedVtxs = 0;
 	MDLHandle_t i = m_MDLDict.First();
 	while ( i != m_MDLDict.InvalidIndex() )
 	{
@@ -3442,6 +3448,7 @@ void CMDLCache::BeginMapLoad()
 			{
 				--pStudioData->m_iStudioHdrVirtualLock;
 				GetCacheSection( MDLCACHE_STUDIOHDR )->Lock( pStudioData->m_MDLCache );
+				++nLockedHdrs;
 			}
 
 			while ( pStudioData->m_iStudioHdrVirtualLock < 0 )
@@ -3457,9 +3464,11 @@ void CMDLCache::BeginMapLoad()
 		{
 			GetCacheSection( MDLCACHE_VERTEXES )->Unlock( pStudioData->m_VertexCache );
 			pStudioData->m_pForceLockedVertexFileHeader = NULL;
+			++nLockedVtxs;
 		}
 		i = m_MDLDict.Next( i );
 	}
+	fprintf( stderr, "CSGO_TRACE: BeginMapLoad done (locked hdrs=%d vtxs=%d)\n", nLockedHdrs, nLockedVtxs );
 }
 
 //-----------------------------------------------------------------------------

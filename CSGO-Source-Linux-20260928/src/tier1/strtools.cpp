@@ -2275,7 +2275,22 @@ V_MakeAbsolutePath( char *pOut, int outLen, const char *pPath, const char *pStar
 #else
 			{
 				if ( !_getcwd( pOut, outLen ) )
+				{
+#if defined( __OHOS__ )
+					// OHOS 沙箱：引擎 chdir 进应用数据目录（绑定挂载视图）后，getcwd()
+					// 可能无法重构路径而返回 NULL；原实现直接 Plat_FatalError 杀进程
+					// （实测：加载匾 JS SetImage 相对路径触发）。回退到引擎启动时注入的
+					// 游戏根目录（CSGO_OHOS_GAME_ROOT）；再不行退 "/" —— 保证绝对路径
+					// 语义且绝不致死（最坏情况仅图片路径解析错，不崩）。
+					const char *pszRoot = getenv( "CSGO_OHOS_GAME_ROOT" );
+					if ( !pszRoot || !pszRoot[0] || !V_IsAbsolutePath( pszRoot ) )
+						pszRoot = "/";
+					V_strncpy( pOut, pszRoot, outLen );
+					fprintf( stderr, "CSGO_TRACE: V_MakeAbsolutePath getcwd failed, fallback -> %s (path=%s)\n", pOut, pPath ? pPath : "(null)" );
+#else
 					Plat_FatalError( "V_MakeAbsolutePath: _getcwd failed." );
+#endif
+				}
 			}
 #endif
 

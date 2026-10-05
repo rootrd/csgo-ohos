@@ -10,7 +10,7 @@
 	<!-- OHOS 移植：引擎 CCSGO_MainMenu（base_mainmenu.xml 根类型）硬要求以下
 	     子面板（RequireChildInLayoutFile）。CSNO 的下载页版本缺这些导致
 	     NewGame 后主菜单重建崩溃。保留 CSNO 触控桥注入。 -->
-	<CCSGO_MainMenu id="CsnoBootMainMenu" hittest="false">
+	<Panel id="CsnoBootMainMenu" hittest="false">
 		<CSGOPopupManager id="PopupManager" />
 		<CSGOTooltipManager id="TooltipManager" />
 		<ContextMenuManager id="ContextMenuManager" />

@@ -83,6 +83,7 @@ CCSGO_Hud::CCSGO_Hud( CPanel2D *pParent, const char *pchID )
 {
 	Assert( s_pHud == NULL );
 	s_pHud = this;
+	fprintf( stderr, "CSGO_TRACE: CCSGO_Hud ctor this=%p parent=%p id=%s\n", (void*)this, (void*)pParent, pchID ? pchID : "(null)" );
 
 	DbgVerify( BLoadLayout( "file://{resources}/layout/hud/hud.xml" ) );
 
@@ -97,6 +98,7 @@ CCSGO_Hud::CCSGO_Hud( CPanel2D *pParent, const char *pchID )
 //-----------------------------------------------------------------------------
 CCSGO_Hud::~CCSGO_Hud()
 {
+	fprintf( stderr, "CSGO_TRACE: CCSGO_Hud dtor this=%p instance=%p\n", (void*)this, (void*)s_pHud );
 	GameUI().UnregisterGameUIStateListener( this );
 	Assert( s_pHud == this );
 	s_pHud = NULL;

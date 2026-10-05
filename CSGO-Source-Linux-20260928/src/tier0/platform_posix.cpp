@@ -15,6 +15,34 @@
 #include <unistd.h>
 #include <signal.h>
 
+#if defined( __OHOS__ )
+// OHOS：musl 的 gettimeofday/clock_gettime 走 vDSO（r-xs [shmm] 页）。设备上曾出现
+// vDSO 时钟序列锁永不稳定 → 引擎主线程在 gettimeofday 内无限自旋（表现为加载后
+// 黑屏卡死，快照 pc 恒定落在 vDSO 页）。改用 CLOCK_MONOTONIC 裸系统调用彻底绕开
+// vDSO；语义仍是"自模块加载起的秒数/毫秒/微秒"，且单调不受墙钟调整影响。
+#include <time.h>
+#include <sys/syscall.h>
+
+static uint64 s_uMonoStartMS = 0;
+
+static uint64 MonoMSRaw()
+{
+	struct timespec ts;
+	syscall( SYS_clock_gettime, CLOCK_MONOTONIC, &ts );
+	return ( uint64 )ts.tv_sec * 1000ull + ( uint64 )ts.tv_nsec / 1000000ull;
+}
+
+static void MonoInitOnce()
+{
+	if ( !s_uMonoStartMS )
+	{
+		s_uMonoStartMS = MonoMSRaw();
+		if ( !s_uMonoStartMS )  // 极小概率恰好为 0，避免反复初始化
+			s_uMonoStartMS = 1;
+	}
+}
+#endif
+
 #ifdef OSX
 #include <mach-o/dyld.h>
 #include <sys/sysctl.h>
@@ -151,17 +179,22 @@ double Plat_FloatTime()
 		g_FakeBenchmarkTime += g_FakeBenchmarkTimeInc;
 		return g_FakeBenchmarkTime;
 	}
-	
+
+#if defined( __OHOS__ )
+	MonoInitOnce();
+	return ( double )( MonoMSRaw() - s_uMonoStartMS ) / 1000.0;
+#else
 	struct timeval  tp;
-	
+
 	gettimeofday( &tp, NULL );
-	
+
 	if ( !secbase )
 	{
 		InitTime( tp );
 	}
-	
+
 	return (( tp.tv_sec - secbase ) + tp.tv_usec / 1000000.0 );
+#endif
 }
 
 uint32 Plat_MSTime()
@@ -171,17 +204,22 @@ uint32 Plat_MSTime()
 		g_FakeBenchmarkTime += g_FakeBenchmarkTimeInc;
 		return uint32( g_FakeBenchmarkTime * 1000.0 );
 	}
-	
+
+#if defined( __OHOS__ )
+	MonoInitOnce();
+	return uint32( MonoMSRaw() - s_uMonoStartMS );
+#else
 	struct timeval  tp;
-	
+
 	gettimeofday( &tp, NULL );
-	
+
 	if ( !secbase )
 	{
 		InitTime( tp );
 	}
-	
+
 	return (( tp.tv_sec - secbase )*1000 + tp.tv_usec / 1000 );
+#endif
 }
 
 uint64 Plat_USTime()
@@ -191,17 +229,22 @@ uint64 Plat_USTime()
 		g_FakeBenchmarkTime += g_FakeBenchmarkTimeInc;
 		return uint32( g_FakeBenchmarkTime * 1e6 );
 	}
-	
+
+#if defined( __OHOS__ )
+	MonoInitOnce();
+	return ( MonoMSRaw() - s_uMonoStartMS ) * 1000ull;
+#else
 	struct timeval  tp;
-	
+
 	gettimeofday( &tp, NULL );
-	
+
 	if ( !secbase )
 	{
 		InitTime( tp );
 	}
-	
+
 	return ( uint64( tp.tv_sec - secbase )*1000000ull + tp.tv_usec );
+#endif
 }
 
 #endif

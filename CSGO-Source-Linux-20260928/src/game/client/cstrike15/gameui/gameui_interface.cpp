@@ -1239,7 +1239,18 @@ void CGameUI::OnLevelLoadingStarted( const char *levelName, bool bShowProgressDi
 #ifdef PANORAMA_ENABLE
 	if ( m_bPanoramaEnabled )
 	{
-		CCSGO_Hud::GetInstance()->ReloadLayout();
+		// OHOS 防御：HUD 实例可能为空（实测：进图时 GetInstance() 返回 NULL →
+		// ReloadLayout() 里 UnloadLayout 空指针解引用崩溃）。为空则跳过布局重载，
+		// 保证地图加载流程不被拖死；HUD 重建后由后续事件覆盖重载。
+		CCSGO_Hud *pHudInstance = CCSGO_Hud::GetInstance();
+		if ( pHudInstance )
+		{
+			pHudInstance->ReloadLayout();
+		}
+		else
+		{
+			fprintf( stderr, "CSGO_TRACE: OnLevelLoadingStarted: CCSGO_Hud instance NULL, skip ReloadLayout\n" );
+		}
 
 		FOR_EACH_VEC( m_GameUIStateListeners, iListener )
 		{

@@ -383,8 +383,14 @@ void SetupPangoFuncPointers()
 	if ( s_hPangoModule || s_hPangoFT2Module )
 		FreePangoFuncPointers();
 
-	s_hPangoFT2Module = CheckDeepLoadModule( "libpangoft2-1.0.so" );
-    s_hPangoModule = CheckDeepLoadModule( "libpango-1.0.so" );
+	// OHOS 关键修复：必须用带版本号的 soname（与引擎其余组件的 DT_NEEDED 一致）。
+	// HAP 内 `libpango-1.0.so` 与 `libpango-1.0.so.0` 是两个独立文件（内容相同），
+	// musl 的 dlopen 按文件名去重：用无版本名会加载出【第二份】pango/pangoft2 →
+	// GType 二次注册（'cannot register existing PangoFontMap'）→ 类型 ID=0 →
+	// g_once 的 location 永久报废 → 主线程在 g_once_cond 上无限等待（挂死）/
+	// 对象引用错乱（崩在 pango_font_map_load_font）。与当年 SDL3 双实例坑同源。
+	s_hPangoFT2Module = CheckDeepLoadModule( "libpangoft2-1.0.so.0" );
+    s_hPangoModule = CheckDeepLoadModule( "libpango-1.0.so.0" );
     void *s_hFreeType = s_hPangoFT2Module; // we statically link all our dependencies together so we only need to reach into these 2 .so for our symbols
     void *s_hFontConfig = s_hPangoFT2Module;
     void *s_hGObject = s_hPangoModule;
@@ -566,7 +572,11 @@ void CUITextLayoutPango::Initialize( const void * pZeroFillBuffer, int nZeroFill
         {
             Plat_FatalError( "Unable to create Pango font map\n" );
         }
-        
+
+		// OHOS 诊断：创建时刻的对象头（GObject class 指针）
+		fprintf( stderr, "CSGO_TRACE: fm-created fontmap=%p fm0=%p\n",
+				 (void*)s_pFontmap, *(void**)s_pFontmap );
+
 #if 0
 		pango_ft2_font_map_set_resolution( PANGO_FT2_FONT_MAP( s_pFontmap ), 96, 96 );
 		// pango_ft2_font_map_set_default_substitute( PANGO_FT2_FONT_MAP( s_pFontmap ), SubstituteFunc, NULL, NULL );
@@ -598,6 +608,64 @@ void CUITextLayoutPango::Initialize( const void * pZeroFillBuffer, int nZeroFill
 		}
 
 	}
+
+	// OHOS 诊断：初始化完成后的指针与计数（含对象头）
+	fprintf( stderr, "CSGO_TRACE: pango init done count=%d fontmap=%p fm0=%p context=%p\n",
+			 s_nInitializeCount, (void*)s_pFontmap, *(void**)s_pFontmap, (void*)s_pContext );
+
+	// OHOS 预热：在任何 JS/V8 脚本运行之前，把 pango/pangoft2/gobject/fontconfig 内部
+	// 静态 g_once 一次性初始化全部提前跑完。背景：实机取证确认主线程曾无限等待
+	// glib 的 g_once_cond——某个 once 初始化被中途打断后 location 永久停留在
+	// "进行中"，之后任何线程再进入同一初始化都会无超时等待。预热可让这些初始化
+	// 在安全 C++ 上下文（无异常/longjmp 穿越）里彻底完成。
+	if ( s_nInitializeCount == 1 && s_pContext && s_pFontmap )
+	{
+		fprintf( stderr, "CSGO_TRACE: warmup begin fm0=%p\n", *(void**)s_pFontmap );
+
+		// 1) shaping/字体加载路径：布局一段覆盖字形、数字与空格的文本并取尺寸
+		PangoLayout *pWarmupLayout = pango_layout_new( s_pContext );
+		fprintf( stderr, "CSGO_TRACE: warmup s1a fm0=%p\n", *(void**)s_pFontmap );
+		if ( pWarmupLayout )
+		{
+			pango_layout_set_text( pWarmupLayout, "Warmup 0123456789 ABCxyz", -1 );
+			PangoRectangle inkRect, logicalRect;
+			pango_layout_get_pixel_extents( pWarmupLayout, &inkRect, &logicalRect );
+			fprintf( stderr, "CSGO_TRACE: warmup s1b fm0=%p\n", *(void**)s_pFontmap );
+			pango_layout_set_text( pWarmupLayout, "a", 1 );
+			pango_layout_get_pixel_extents( pWarmupLayout, &inkRect, &logicalRect );
+			fprintf( stderr, "CSGO_TRACE: warmup s1c fm0=%p\n", *(void**)s_pFontmap );
+			g_object_unref( pWarmupLayout );
+			fprintf( stderr, "CSGO_TRACE: warmup s1d fm0=%p\n", *(void**)s_pFontmap );
+		}
+
+		// 2) 字体家族列表路径（fontconfig 家族表构建 / harfbuzz 字体初始化）
+		PangoFontFamily **pFamilies = NULL;
+		int cFamilies = 0;
+		pango_font_map_list_families( s_pFontmap, &pFamilies, &cFamilies );
+		fprintf( stderr, "CSGO_TRACE: warmup s2a fm0=%p\n", *(void**)s_pFontmap );
+		if ( pFamilies )
+		{
+			g_free( pFamilies );
+		}
+		fprintf( stderr, "CSGO_TRACE: warmup s2b fm0=%p\n", *(void**)s_pFontmap );
+
+		// 3) 字体度量路径（PangoFontDescription 解析 + metrics 一次性初始化）
+		PangoFontDescription *pWarmupDesc = pango_font_description_from_string( "Arial 12" );
+		fprintf( stderr, "CSGO_TRACE: warmup s3a fm0=%p\n", *(void**)s_pFontmap );
+		if ( pWarmupDesc )
+		{
+			PangoFontMetrics *pMetrics = pango_context_get_metrics( s_pContext, pWarmupDesc, pango_context_get_language( s_pContext ) );
+			fprintf( stderr, "CSGO_TRACE: warmup s3b fm0=%p\n", *(void**)s_pFontmap );
+			if ( pMetrics )
+			{
+				pango_font_metrics_unref( pMetrics );
+			}
+			pango_font_description_free( pWarmupDesc );
+			fprintf( stderr, "CSGO_TRACE: warmup s3c fm0=%p\n", *(void**)s_pFontmap );
+		}
+
+		fprintf( stderr, "CSGO_TRACE: warmup end fm0=%p\n", *(void**)s_pFontmap );
+	}
 }
 
 
@@ -628,6 +696,10 @@ void CUITextLayoutPango::Shutdown()
 #endif
 		CUIFontLoaderLinux::GetInstance().Shutdown();
 	}
+
+	// OHOS 诊断：关闭后的计数与指针（应为 NULL/0）
+	fprintf( stderr, "CSGO_TRACE: pango shutdown done count=%d fontmap=%p context=%p\n",
+			 s_nInitializeCount, (void*)s_pFontmap, (void*)s_pContext );
 }
 
 
@@ -874,6 +946,10 @@ bool CUITextLayoutPango::BInitialize( const void *pRawText, int cbRawText, int c
 
 	{
 		//VPROF_BUDGET( "CUITextLayoutPango::pango_font_map_load_font", VPROF_BUDGETGROUP_TENFOOT );
+
+		// OHOS 诊断：记录即将用于 load_font 的 fontmap/context 原始值与对象头
+		fprintf( stderr, "CSGO_TRACE: BInit load_font fontmap=%p fm0=%p context=%p desc=%p count=%d\n",
+				 (void*)s_pFontmap, *(void**)s_pFontmap, (void*)s_pContext, (void*)pFontDescription, s_nInitializeCount );
 
 		PangoFont *pPangoFont = pango_font_map_load_font( s_pFontmap, s_pContext, pFontDescription );
 		if( pPangoFont )

@@ -1,7 +1,13 @@
 <root>
-	<Panel class="WindowRoot" hittest="false">
-	<Panel hittest="false">
-		<Panel id="AlertText"></Panel>
-	</Panel>
-	</Panel>
+	<styles>
+		<include src="file://{resources}/styles/csgostyles.css" />
+		<include src="file://{resources}/styles/hud/hudalerts.css" />
+	</styles>
+
+  <CSGOHudAlerts alertstate="AlertHidden" class="AlertHidden" hittest="false">
+	  <Panel class="hrTop" />
+		<Panel id="AlertBg"/>
+	  <Label id="AlertText"/>
+		<Panel class="hrBot" />
+  </CSGOHudAlerts>
 </root>

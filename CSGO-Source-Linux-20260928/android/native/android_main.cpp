@@ -19,6 +19,10 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
+#include <dirent.h>
+#include <pthread.h>
+#include <time.h>
 #include <fstream>
 #include <memory>
 #include <stdexcept>
@@ -434,6 +438,9 @@ void initializePaths(bool sourceResources) {
     if (!sourceResources) return;
     setenv("DXVK_LOG_PATH", logs.c_str(), 1);
     setenv("DXVK_WSI_DRIVER", "SDL3", 1);
+    // 诊断期结束：遥测/账本默认关闭（GTAV_OHOS_TELEMETRY=1 会同时激活 d3d9 里
+    // 的 G9 分段账本与"同步等待消融"实验代码，出货运行不得开启）。
+    // 需要时在调试构建里手动打开，另注意 DXVK_SHADER_DUMP_PATH 会写几百 MB。
     const auto cache = fs::path(ResourceRoot()) / "cache";
     fs::create_directories(cache, error);
     if (error) throw std::runtime_error("Cannot create game cache: " + error.message());
@@ -546,11 +553,76 @@ static _Unwind_Reason_Code crashFrame(_Unwind_Context *context, void *) {
     return _URC_NO_REASON;
 }
 
-static void crashHandler(int sig) {
+static void crashWriteLine(const char *label, uintptr_t addr) {
+    Dl_info info{};
+    char line[512];
+    if (dladdr(reinterpret_cast<void *>(addr), &info) && info.dli_fbase) {
+        snprintf(line, sizeof(line), "  %s %012llx %s (+%llx) (%s)\n", label,
+                 static_cast<unsigned long long>(addr - reinterpret_cast<uintptr_t>(info.dli_fbase)),
+                 info.dli_fname,
+                 static_cast<unsigned long long>(addr - reinterpret_cast<uintptr_t>(info.dli_fbase)),
+                 info.dli_sname ? info.dli_sname : "?");
+    } else {
+        snprintf(line, sizeof(line), "  %s %012llx <unknown>\n", label,
+                 static_cast<unsigned long long>(addr));
+    }
     if (g_crashFd >= 0) {
-        char head[64];
+        if (write(g_crashFd, line, strlen(line)) < 0) { /* best effort */ }
+    }
+}
+
+// 打印 pc 落在 /proc/self/maps 的哪一行（区域类型：堆/栈/匿名/文件映射）
+static void crashWriteMapsRegion(const char *label, uintptr_t addr) {
+    char line[512];
+    snprintf(line, sizeof(line), "  %s-maps-lookup %012llx\n", label,
+             static_cast<unsigned long long>(addr));
+    if (g_crashFd >= 0) {
+        if (write(g_crashFd, line, strlen(line)) < 0) { /* best effort */ }
+    }
+    FILE *f = fopen("/proc/self/maps", "r");
+    if (!f) return;
+    char mapline[512];
+    while (fgets(mapline, sizeof(mapline), f)) {
+        uintptr_t lo = 0, hi = 0;
+        if (sscanf(mapline, "%lx-%lx", &lo, &hi) == 2 && addr >= lo && addr < hi) {
+            if (g_crashFd >= 0) {
+                if (write(g_crashFd, mapline, strlen(mapline)) < 0) { /* best effort */ }
+            }
+            break;
+        }
+    }
+    fclose(f);
+}
+
+static void crashHandler(int sig, siginfo_t *info, void *uctx) {
+    if (g_crashFd >= 0) {
+        char head[160];
         snprintf(head, sizeof(head), "=== SIGNAL %d ===\n", sig);
         if (write(g_crashFd, head, strlen(head)) < 0) { /* best effort */ }
+        if (uctx) {
+            ucontext_t *uc = reinterpret_cast<ucontext_t *>(uctx);
+            uintptr_t pc = static_cast<uintptr_t>(uc->uc_mcontext.pc);
+            uintptr_t lr = static_cast<uintptr_t>(uc->uc_mcontext.regs[30]);
+            uintptr_t sp = static_cast<uintptr_t>(uc->uc_mcontext.sp);
+            uintptr_t addr = info ? reinterpret_cast<uintptr_t>(info->si_addr) : 0;
+            unsigned long long x0 = static_cast<unsigned long long>(uc->uc_mcontext.regs[0]);
+            unsigned long long x1 = static_cast<unsigned long long>(uc->uc_mcontext.regs[1]);
+            unsigned long long x2 = static_cast<unsigned long long>(uc->uc_mcontext.regs[2]);
+            unsigned long long x3 = static_cast<unsigned long long>(uc->uc_mcontext.regs[3]);
+            unsigned long long x8 = static_cast<unsigned long long>(uc->uc_mcontext.regs[8]);
+            snprintf(head, sizeof(head),
+                     "  ctx pc=%012llx lr=%012llx sp=%012llx si_addr=%012llx si_code=%d x8=%llu x0=%llx x1=%llx x2=%llx x3=%llx\n",
+                     static_cast<unsigned long long>(pc),
+                     static_cast<unsigned long long>(lr),
+                     static_cast<unsigned long long>(sp),
+                     static_cast<unsigned long long>(addr),
+                     info ? info->si_code : 0,
+                     x8, x0, x1, x2, x3);
+            if (write(g_crashFd, head, strlen(head)) < 0) { /* best effort */ }
+            crashWriteLine("ctx-pc", pc);
+            crashWriteLine("ctx-lr", lr);
+            crashWriteMapsRegion("ctx-pc", pc);
+        }
         _Unwind_Backtrace(crashFrame, nullptr);
         fsync(g_crashFd);
     }
@@ -558,16 +630,259 @@ static void crashHandler(int sig) {
     raise(sig);
 }
 
+static std::string g_logsDir;
+
 static void installCrashHandler(const char *logsDir) {
+    g_logsDir = logsDir;
     std::string path = std::string(logsDir) + "/crash_bt.txt";
     g_crashFd = open(path.c_str(), O_CREAT | O_WRONLY | O_APPEND, 0666);
     struct sigaction sa{};
-    sa.sa_handler = crashHandler;
+    sa.sa_sigaction = crashHandler;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_ONSTACK;
+    sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
     sigaction(SIGSEGV, &sa, nullptr);
     sigaction(SIGABRT, &sa, nullptr);
     sigaction(SIGBUS, &sa, nullptr);
+}
+
+// ---- 主线程栈快照看门狗 ----
+// 看门狗线程定期向主线程发 SIGUSR2；处理器在主线程自身上下文里 _Unwind_Backtrace
+// 写快照到 crash_bt.txt。引擎主循环挂死时（等锁/等 present），快照会反复落在同一
+// 组帧上，即真实阻塞点；健康时则是主循环进度时间线。shell 无权限发信号，只能进程内做。
+// v2：全线程采样 + glib g_once 内窥（读 g_once_init_list 找出卡住的一次性初始化 location）
+static pthread_t g_MainPthread;
+static int g_MainTid = 0;
+static std::atomic<int> g_nMainSnapshots{0};
+
+static void MainStackDumpHandler(int sig, siginfo_t *info, void *uctx) {
+    (void)sig; (void)info;
+    if (g_crashFd < 0) return;
+    char head[224];
+    int tid = (int)syscall(SYS_gettid);
+    if (tid == g_MainTid) {
+        snprintf(head, sizeof(head), "=== MAIN SNAPSHOT #%d ===\n", ++g_nMainSnapshots);
+    } else {
+        snprintf(head, sizeof(head), "=== THREAD SNAP tid=%d ===\n", tid);
+    }
+    if (write(g_crashFd, head, strlen(head)) < 0) { /* best effort */ }
+    if (uctx) {
+        // 关键寄存器全导出：pc/lr 定位现场，x0-x3 是系统调用参数，
+        // x8 是 arm64 系统调用号（read=63/write=64/munmap=215/futex=98/
+        // clone=220/wait4=260/close_range=436/flock=32…），一锤定音定阻塞调用
+        ucontext_t *uc = reinterpret_cast<ucontext_t *>(uctx);
+        uintptr_t pc = static_cast<uintptr_t>(uc->uc_mcontext.pc);
+        uintptr_t lr = static_cast<uintptr_t>(uc->uc_mcontext.regs[30]);
+        uintptr_t sp = static_cast<uintptr_t>(uc->uc_mcontext.sp);
+        unsigned long long x0 = static_cast<unsigned long long>(uc->uc_mcontext.regs[0]);
+        unsigned long long x1 = static_cast<unsigned long long>(uc->uc_mcontext.regs[1]);
+        unsigned long long x2 = static_cast<unsigned long long>(uc->uc_mcontext.regs[2]);
+        unsigned long long x3 = static_cast<unsigned long long>(uc->uc_mcontext.regs[3]);
+        unsigned long long x8 = static_cast<unsigned long long>(uc->uc_mcontext.regs[8]);
+        snprintf(head, sizeof(head),
+                 "  ctx pc=%012llx lr=%012llx sp=%012llx x8=%llu x0=%llx x1=%llx x2=%llx x3=%llx\n",
+                 static_cast<unsigned long long>(pc),
+                 static_cast<unsigned long long>(lr),
+                 static_cast<unsigned long long>(sp),
+                 x8, x0, x1, x2, x3);
+        if (write(g_crashFd, head, strlen(head)) < 0) { /* best effort */ }
+        crashWriteMapsRegion("lr", lr);
+        // 主线程：把 sp 起 2KB 栈字导出（每 8 字节一行），供离线扫描返回地址指纹
+        if (tid == g_MainTid && g_nMainSnapshots % 5 == 1) {
+            const uintptr_t *p = reinterpret_cast<const uintptr_t *>(sp);
+            for (int i = 0; i < 256; ++i) {
+                // 主线程活栈，sp 以上 2KB 可安全读
+                uintptr_t v = p[i];
+                if (v >= 0x1000) {
+                    int n = snprintf(head, sizeof(head), "  sp+%04x %012llx", (unsigned)(i * 8),
+                                     static_cast<unsigned long long>(v));
+                    if (n > 0 && n < (int)sizeof(head)) {
+                        if (write(g_crashFd, head, n) < 0) { /* best effort */ }
+                        const char *nl = "\n";
+                        if (write(g_crashFd, nl, 1) < 0) { /* best effort */ }
+                    }
+                }
+            }
+        }
+    }
+    _Unwind_Backtrace(crashFrame, nullptr);
+}
+
+// ---- glib g_once 内窥（看门狗线程内、普通上下文执行，安全读内存）----
+// 主线程卡在 pthread_cond_wait(&g_once_cond) 时，g_once_init_list 里挂着
+// "正在初始化" 的 location 地址——把它读出来就能直接定位是哪个库的哪个 g_once。
+// 偏移绑定 glib 2.80.4（nm 核实：mutex=0x1e2680, list=0x1e2688, cond=0x1e2690）。
+#define GLIB_OFF_ONCE_MUTEX 0x1e2680ull
+#define GLIB_OFF_ONCE_LIST  0x1e2688ull
+#define GLIB_OFF_ONCE_COND  0x1e2690ull
+
+struct MapRange { unsigned long long lo, hi; char perms[5]; char line[200]; };
+static MapRange g_MapRanges[8192];
+static int g_nMapRanges = 0;
+
+static void LoadMapsRanges() {
+    g_nMapRanges = 0;
+    FILE *f = fopen("/proc/self/maps", "r");
+    if (!f) return;
+    char line[256];
+    while (fgets(line, sizeof(line), f) &&
+           g_nMapRanges < (int)(sizeof(g_MapRanges) / sizeof(g_MapRanges[0]))) {
+        unsigned long long lo = 0, hi = 0;
+        char perms[5] = {0, 0, 0, 0, 0};
+        if (sscanf(line, "%llx-%llx %4s", &lo, &hi, perms) == 3) {
+            MapRange &r = g_MapRanges[g_nMapRanges++];
+            r.lo = lo;
+            r.hi = hi;
+            memcpy(r.perms, perms, 4);
+            strncpy(r.line, line, sizeof(r.line) - 1);
+            r.line[sizeof(r.line) - 1] = 0;
+            size_t len = strlen(r.line);
+            if (len && r.line[len - 1] == '\n') r.line[len - 1] = 0;
+        }
+    }
+    fclose(f);
+}
+
+static const MapRange *FindMapRange(unsigned long long addr) {
+    for (int i = 0; i < g_nMapRanges; ++i)
+        if (addr >= g_MapRanges[i].lo && addr < g_MapRanges[i].hi) return &g_MapRanges[i];
+    return nullptr;
+}
+
+static bool IsReadableAddr(unsigned long long addr) {
+    const MapRange *r = FindMapRange(addr);
+    return r && r->perms[0] == 'r';
+}
+
+static void DumpGlibOnceState() {
+    if (g_crashFd < 0) return;
+    LoadMapsRanges();
+    unsigned long long base = 0;
+    for (int i = 0; i < g_nMapRanges && !base; ++i) {
+        if (strstr(g_MapRanges[i].line, "libglib-2.0.so.0") &&
+            strstr(g_MapRanges[i].line, "r--p")) {
+            base = g_MapRanges[i].lo;  // 第一个映射 = load base
+        }
+    }
+    char buf[320];
+    int n;
+    if (!base) {
+        n = snprintf(buf, sizeof(buf), "  glib-once: libglib base not found\n");
+        if (write(g_crashFd, buf, n) < 0) { /* best effort */ }
+        return;
+    }
+    int mutexV = 0;
+    int condW = 0;
+    unsigned long long listHead = 0;
+    unsigned long long condAddr = base + GLIB_OFF_ONCE_COND;
+    if (IsReadableAddr(base + GLIB_OFF_ONCE_MUTEX)) mutexV = *(volatile int *)(base + GLIB_OFF_ONCE_MUTEX);
+    if (IsReadableAddr(condAddr + 8)) condW = *(volatile int *)(condAddr + 8);
+    if (IsReadableAddr(base + GLIB_OFF_ONCE_LIST)) listHead = *(volatile unsigned long long *)(base + GLIB_OFF_ONCE_LIST);
+    n = snprintf(buf, sizeof(buf),
+                 "  glib-once: base=%012llx mutex=%d condword=%d list=%012llx%s\n",
+                 base, mutexV, condW, listHead, listHead == 0 ? " (EMPTY)" : "");
+    if (write(g_crashFd, buf, n) < 0) { /* best effort */ }
+    unsigned long long node = listHead;
+    for (int i = 0; i < 4 && node; ++i) {
+        if (!IsReadableAddr(node) || !IsReadableAddr(node + 8)) {
+            n = snprintf(buf, sizeof(buf), "    once-loc #%d node=%012llx UNREADABLE\n", i, node);
+            if (write(g_crashFd, buf, n) < 0) { /* best effort */ }
+            break;
+        }
+        unsigned long long data = *(volatile unsigned long long *)node;
+        unsigned long long next = *(volatile unsigned long long *)(node + 8);
+        const MapRange *rr = FindMapRange(data);
+        n = snprintf(buf, sizeof(buf), "    once-loc #%d addr=%012llx next=%012llx | %s\n",
+                     i, data, next, rr ? rr->line : "<unmapped?>");
+        if (write(g_crashFd, buf, n) < 0) { /* best effort */ }
+        node = next;
+    }
+}
+
+static void SampleAllThreads() {
+    DIR *d = opendir("/proc/self/task");
+    if (!d) {
+        pthread_kill(g_MainPthread, SIGUSR2);
+        return;
+    }
+    pid_t pid = (pid_t)syscall(SYS_getpid);
+    struct dirent *e;
+    int n = 0;
+    while ((e = readdir(d)) != nullptr && n < 256) {
+        if (e->d_name[0] == '.') continue;
+        long tid = strtol(e->d_name, nullptr, 10);
+        if (tid <= 0) continue;
+        // 跳过系统线程（OS_FFRT_*/OS_IPC_* 等）：曾有线程刚 clone 出来、TLS 未
+        // 初始化完，SIGUSR2 处理器在残废上下文里执行 → 进程 SIGILL 自杀
+        // （faultlog cppcrash 实锤 OS_FFRT_3_7）。这些线程对定位游戏问题无价值。
+        char commPath[64], comm[32] = {0};
+        snprintf(commPath, sizeof(commPath), "/proc/self/task/%ld/comm", tid);
+        FILE *cf = fopen(commPath, "r");
+        bool skip = true;   // 读不到名字也跳过（保守）
+        if (cf) {
+            if (fgets(comm, sizeof(comm), cf)) skip = (strncmp(comm, "OS_", 3) == 0);
+            fclose(cf);
+        }
+        if (!skip) {
+            syscall(SYS_tgkill, pid, (pid_t)tid, SIGUSR2);
+            ++n;
+        }
+    }
+    closedir(d);
+}
+
+static void *MainStackWatchdog(void *) {
+    // logs 目录由 installCrashHandler 稍后填入；等到就绪再落一份全量 maps，
+    // 供离线定位地址归属
+    for (int i = 0; i < 600 && g_logsDir.empty(); ++i) {
+        struct timespec one = { 1, 0 };
+        nanosleep(&one, nullptr);
+    }
+    if (!g_logsDir.empty()) {
+        FILE *src = fopen("/proc/self/maps", "r");
+        if (src) {
+            FILE *dst = fopen((g_logsDir + "/main_maps.txt").c_str(), "w");
+            if (dst) {
+                char buf[4096];
+                size_t n;
+                while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+                    fwrite(buf, 1, n, dst);
+                }
+                fclose(dst);
+            }
+            fclose(src);
+        }
+    }
+    if (g_crashFd >= 0) {
+        const char *mark = "=== WATCHDOG THREAD START ===\n";
+        if (write(g_crashFd, mark, strlen(mark)) < 0) { /* best effort */ }
+        fsync(g_crashFd);
+    }
+    int firstDelay = 1;
+    for (;;) {
+        struct timespec ts = { firstDelay ? 10 : 30, 0 };
+        firstDelay = 0;
+        nanosleep(&ts, nullptr);
+        SampleAllThreads();
+        struct timespec settle = { 0, 200 * 1000 * 1000 };  // 200ms 让各线程处理器写完
+        nanosleep(&settle, nullptr);
+        DumpGlibOnceState();
+        if (g_crashFd >= 0) fsync(g_crashFd);
+    }
+    return nullptr;
+}
+
+static void installMainStackWatchdog() {
+    g_MainPthread = pthread_self();
+    g_MainTid = (int)syscall(SYS_gettid);
+    struct sigaction sa{};
+    sa.sa_sigaction = MainStackDumpHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART | SA_SIGINFO; // 引擎里大量阻塞调用，避免被信号打断成 EINTR
+    sigaction(SIGUSR2, &sa, nullptr);
+    pthread_t tid;
+    if (pthread_create(&tid, nullptr, MainStackWatchdog, nullptr) == 0) {
+        pthread_detach(tid);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -580,6 +895,12 @@ int main(int argc, char** argv) {
     // OHOS dlopen 入口没有；不调它，引擎第一次 SDL_Init(SubSystem) 就报
     // "Application didn't initialize properly, did you include SDL_main.h..."。
     SDL_SetMainReady();
+    // 全线程 SIGUSR2 快照看门狗默认关闭：它曾对刚创建/TLS 未就绪的系统线程
+    // （FFRT worker）投递信号，处理器在残废上下文执行导致进程 SIGILL 自杀
+    // （faultlog cppcrash 实锤）。需要诊断挂起时用 CSGO_OHOS_WATCHDOG=1 显式
+    // 开启；常规 CPU 剖析改用设备自带 hiperf（record -p/-s dwarf）。
+    if (getenv("CSGO_OHOS_WATCHDOG"))
+        installMainStackWatchdog();
 #endif
 #ifdef __OHOS__
 #if CSGO_OHOS_PROBE

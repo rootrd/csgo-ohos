@@ -1,7 +1,26 @@
 <root>
-	<Panel class="WindowRoot" hittest="false">
-	<Panel hittest="false">
-		<Panel id="MoneyBG"></Panel>
-	</Panel>
-	</Panel>
+	<styles>
+		<include src="file://{resources}/styles/base.css" />
+    <include src="file://{resources}/styles/csgostyles.css" />
+    <include src="file://{resources}/styles/hud/hudmoney.css" />
+	</styles>
+
+	<CSGOMoneyPanel class="money" hittest="false" force-no-composition-layer="true">
+    <Panel id="MoneyBG" class="money-text-bg"/>
+    <Panel class="money-text">
+		            
+		<Image id="SurvivalZoneMoneyExploreBonus" class="money-text-explorebonus-icon cl-hud-wash-color hidden" src="file://{images}/icons/ui/explorebonus.svg" texturewidth="48" textureheight="-1" />
+		<Image id="SurvivalZoneMoneyBombWaveBonus" class="money-text-bombwavebonus-icon cl-hud-wash-color hidden" src="file://{images}/icons/ui/bombwavebonus.svg" texturewidth="48" textureheight="-1" />
+		            
+		<Label class="money-text-label cl-hud-wash-color" text="${d:r:hud-money-amount}"/>
+		            
+		<CSGOSurvivalZoneMoneyProgress id="SurvivalZoneMoneyProgress" class="hidden"/>
+		            
+		<Image class="money-text-buy-icon cl-hud-wash-color" src="file://{images}/icons/ui/buyzone.svg" />
+    </Panel>
+
+    <CSGOMoneyAnimLabel id="Money-Add"      class="money-anim" text="+$999"/>
+    <CSGOMoneyAnimLabel id="Money-AddFlash" class="money-anim" text="+$999"/>
+    <CSGOMoneyAnimLabel id="Money-Remove"   class="money-anim" text="+$999"/>
+	</CSGOMoneyPanel>
 </root>

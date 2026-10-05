@@ -1,4 +1,13 @@
-// OHOS: direct map load via valve.rc (single-queue path, proven safe)
+// OHOS survival settings（内存预算：实测满速加载 GL 侧膨胀到 5.3GB 触发系统杀进程）
+mat_picmip 4
+r_shadows 0
+r_rootlod 2
+mat_forceaniso 0
+r_drawdetailprops 0
+r_drawmodeldecals 0
+mat_reducefillrate 1
+cl_detaildist 0
+cl_detailfade 0
+// PERF P0：菜单帧率测量轮——不自动进图（进图用 cmdline 注入 +map 单独测）
 stuffcmds
-map de_dust2
-fps_max 30
+fps_max 60

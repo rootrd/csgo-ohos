@@ -13,6 +13,7 @@
 #include "cs_gamerules_survival.h"
 #include "hudelement.h"
 #include "panorama/controls/movieplayer.h"
+#include "panorama/controls/circularprogressbar.h"
 #include "view.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -21,6 +22,19 @@
 using namespace panorama;
 
 REGISTER_PANEL2D_FACTORY( CCSGO_Compass, CSGOCompass );
+
+// compass.xml instantiates CircularProgressBar. The control compiles into the
+// panorama_client static archive, and nothing in this library referenced it, so
+// the archive member (carrying its panel factory) was never linked in and the
+// layout parse failed with "unknown panel type". Referencing a member function
+// forces the linker to pull the object in.
+// Never called; its reference to the constructor forces the linker to pull
+// circularprogressbar.o (with its panel factory) out of the static archive.
+__attribute__( ( used ) ) static void CCircularProgressBar_LinkForce()
+{
+	CCircularProgressBar *pForce = new CCircularProgressBar( NULL, "linkforce" );
+	( void )pForce;
+}
 
 DEFINE_PANORAMA_EVENT_DOC( ShowCompass, "bool", "Show or hide the panel." );
 DEFINE_PANORAMA_EVENT_DOC( CompassUpdate, "", "Update state from survival gamerules" );

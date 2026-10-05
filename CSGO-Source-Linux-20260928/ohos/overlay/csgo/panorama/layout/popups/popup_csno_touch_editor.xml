@@ -11,7 +11,7 @@
 
 	<!-- CS:NO (09-28, 0.1.5): full-screen touch layout editor.  The screen here is the game's window, the same area the
 	     Android touch overlay covers, so a button put at (x, y) here sits at (x, y) in a match. -->
-	<PopupCustomLayout class="csno-editor" popupbackground="dim" onload="CsnoTouchEditor.Init();" oncancel="CsnoTouchEditor.Cancel();">
+	<Panel class="csno-editor" popupbackground="dim" onload="CsnoTouchEditor.Init();" oncancel="CsnoTouchEditor.Cancel();">
 		<Panel id="CsnoGrid" class="csno-grid" />
 		<Panel id="CsnoCircles" class="csno-layer" hittest="false" hittestchildren="true" />
 
@@ -53,5 +53,5 @@
 				<Button class="csno-action" onactivate="CsnoTouchEditor.Defaults();"><Label class="csno-btn-text" text="全部恢复默认" /></Button>
 			</Panel>
 		</Panel>
-	</PopupCustomLayout>
+	</Panel>
 </root>

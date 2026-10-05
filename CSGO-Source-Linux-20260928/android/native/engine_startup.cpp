@@ -121,11 +121,70 @@ int runSourceEngine(int argc, char **argv, const char *resourceRoot, const char 
     const SDL_DisplayMode *mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
     if (!mode || mode->w <= 0 || mode->h <= 0)
         throw std::runtime_error(std::string("SDL display mode query failed: ") + SDL_GetError());
+    // 联调注入通道 = 文件通道（唯一可靠）：csgo/cmdline.txt（| 分隔）。
+    // env 通道（libentry setenv CSGO_OHOS_ARGS）在 libentry/libmain 间实测隔离，
+    // 永远读不到；历史 bug 还让文件内容只写 debug 不生效（已修）。注意本块必须在
+    // 窗口/参数构造之前，render=/maxtex= 档位才能被 width/height 采用。
+    //   maxtex=NN   → 引擎侧贴图上限（DXVK caps 上报，默认 512 已于 d3d9_adapter）
+    //   render=WxH  → 渲染分辨率（引擎视频模式取该值；不改窗口与触控坐标）
+    //   其它 token  → 原样追加进引擎命令行（+cvar value 等）
+    int renderW = 0, renderH = 0;
+    std::vector<std::string> injectedArgs;
+    const char* extraArgs = nullptr;
+    const std::string cmdFilePath = std::string(resourceRoot) + "/csgo/cmdline.txt";
+    {
+        FILE* f = fopen(cmdFilePath.c_str(), "r");
+        if (!f) {
+            // stderr 此刻尚未重定向到 stdio.log，用 debug 文件落盘
+            FILE* ef = fopen((std::string(resourceRoot) + "/csgo/cmdline_debug.txt").c_str(), "w");
+            if (ef) { fprintf(ef, "fopen FAILED errno=%d path=%s\n", errno, cmdFilePath.c_str()); fclose(ef); }
+        } else {
+            static char cmdBuf[1024] = {0};
+            size_t n = fread(cmdBuf, 1, sizeof(cmdBuf) - 1, f);
+            fclose(f);
+            while (n && (cmdBuf[n-1] == '\n' || cmdBuf[n-1] == '\r')) cmdBuf[--n] = 0;
+            FILE* ef = fopen((std::string(resourceRoot) + "/csgo/cmdline_debug.txt").c_str(), "w");
+            if (ef) { fprintf(ef, "read n=%zu content=%s\n", n, cmdBuf); fclose(ef); }
+            if (n) extraArgs = cmdBuf;   // cmdBuf 是 static，生命周期安全
+        }
+    }
+    if (!extraArgs)
+        extraArgs = getenv("CSGO_OHOS_ARGS");   // 隔离环境下实际到不了这里，仅兜底
+    if (extraArgs) {
+        std::string token;
+        auto handleTok = [&](const std::string& t) {
+            if (t.rfind("maxtex=", 0) == 0) {
+                setenv("CSGO_OHOS_MAXTEX", t.c_str() + 7, 1);
+                fprintf(stderr, "CSGO_TRACE: perf token maxtex=%s\n", t.c_str() + 7);
+            } else if (t.rfind("render=", 0) == 0) {
+                unsigned w = 0, h = 0;
+                if (sscanf(t.c_str() + 7, "%ux%u", &w, &h) == 2 && w >= 640 && h >= 360) {
+                    renderW = (int)w;
+                    renderH = (int)h;
+                    fprintf(stderr, "CSGO_TRACE: perf token render=%ux%u\n", w, h);
+                }
+            } else {
+                injectedArgs.push_back(t);
+            }
+        };
+        for (const char* p = extraArgs; ; ++p) {
+            if (*p == '|' || *p == '\0') {
+                if (!token.empty()) handleTok(token);
+                token.clear();
+                if (*p == '\0') break;
+            } else {
+                token.push_back(*p);
+            }
+        }
+    }
 #ifdef __OHOS__
     // DXVK's OHOS monitor stubs read the real display size from here.
     {
         char displaySize[64];
-        snprintf(displaySize, sizeof(displaySize), "%dx%d", mode->w, mode->h);
+        if (renderW && renderH)
+            snprintf(displaySize, sizeof(displaySize), "%dx%d", renderW, renderH);
+        else
+            snprintf(displaySize, sizeof(displaySize), "%dx%d", mode->w, mode->h);
         setenv("CSGO_OHOS_DISPLAY", displaySize, 1);
     }
     // Create the game window NOW: the XComponent surface already exists (SDL_main
@@ -145,51 +204,16 @@ int runSourceEngine(int argc, char **argv, const char *resourceRoot, const char 
         setenv("CSGO_OHOS_WINDOW", windowPtr, 1);
     }
 #endif
-    const int width = mode->w > mode->h ? mode->w : mode->h;
-    const int height = mode->w > mode->h ? mode->h : mode->w;
+    const int width = renderW ? renderW : (mode->w > mode->h ? mode->w : mode->h);
+    const int height = renderH ? renderH : (mode->w > mode->h ? mode->h : mode->w);
     std::vector<std::string> arguments = {
         "csgo_android", "-basedir", resourceRoot, "-game", "csgo",
         "-nosteam", "-insecure", "-novid",
         "-w", std::to_string(width), "-h", std::to_string(height)
     };
-    // 联调注入通道（首选）：直接读 csgo/cmdline.txt（| 分隔）。沙箱 fopen 拒绝
-    // ".." 路径分量，故文件放 csgo/ 子树内。文件读取在本模块已验证可行；
-    // napi 的 setenv 实测不跨库可见（libentry 与 libmain 的 env 隔离），
-    // 环境变量通道保留为后备。
-    const char* extraArgs = nullptr;
-    std::string cmdFilePath = std::string(resourceRoot) + "/csgo/cmdline.txt";
-    {
-        FILE* f = fopen(cmdFilePath.c_str(), "r");
-        if (!f) {
-            // stderr 此刻尚未重定向到 stdio.log，用 hilog 才可见
-            FILE* ef = fopen((std::string(resourceRoot) + "/csgo/cmdline_debug.txt").c_str(), "w");
-            if (ef) { fprintf(ef, "fopen FAILED errno=%d path=%s\n", errno, cmdFilePath.c_str()); fclose(ef); }
-        } else {
-            static char cmdBuf[1024] = {0};
-            size_t n = fread(cmdBuf, 1, sizeof(cmdBuf) - 1, f);
-            int readErr = ferror(f);
-            fclose(f);
-            while (n && (cmdBuf[n-1] == '\n' || cmdBuf[n-1] == '\r')) cmdBuf[--n] = 0;
-            FILE* ef = fopen((std::string(resourceRoot) + "/csgo/cmdline_debug.txt").c_str(), "w");
-            if (ef) { fprintf(ef, "read n=%zu content=%s\n", n, cmdBuf); fclose(ef); }
-        }
-    }
-    if (!extraArgs)
-        extraArgs = getenv("CSGO_OHOS_ARGS");
     fprintf(stderr, "CSGO_TRACE: inject args=%s (file=%s)\n",
         extraArgs ? extraArgs : "(none)", cmdFilePath.c_str());
-    if (extraArgs) {
-        std::string token;
-        for (const char* p = extraArgs; ; ++p) {
-            if (*p == '|' || *p == '\0') {
-                if (!token.empty()) arguments.push_back(token);
-                token.clear();
-                if (*p == '\0') break;
-            } else {
-                token.push_back(*p);
-            }
-        }
-    }
+    arguments.insert(arguments.end(), injectedArgs.begin(), injectedArgs.end());
     // Installed offline ASTC texture pack (scripts/build-android.sh sync).
     const std::string astcPack = std::string(resourceRoot) + "/astc";
     struct stat astcPackInfo;
