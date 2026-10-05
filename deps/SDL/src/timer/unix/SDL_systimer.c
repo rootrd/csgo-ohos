@@ -62,11 +62,24 @@
 static bool checked_monotonic_time = false;
 static bool has_monotonic_time = false;
 
+#if defined(__OHOS__)
+// OHOS: musl's clock_gettime goes through the vDSO; on some devices the vDSO
+// clock seqlock never stabilizes after suspend/resume and callers spin forever
+// (engine main loop freeze). Use the raw syscall to bypass the vDSO entirely.
+#include <sys/syscall.h>
+static int OhosClockRaw(clockid_t clk, struct timespec *ts)
+{
+    return (int)syscall(SYS_clock_gettime, clk, ts);
+}
+#else
+#define OhosClockRaw(clk, ts) clock_gettime((clk), (ts))
+#endif
+
 static void CheckMonotonicTime(void)
 {
 #ifdef HAVE_CLOCK_GETTIME
     struct timespec value;
-    if (clock_gettime(SDL_MONOTONIC_CLOCK, &value) == 0) {
+    if (OhosClockRaw(SDL_MONOTONIC_CLOCK, &value) == 0) {
         has_monotonic_time = true;
     }
 #elif defined(SDL_PLATFORM_APPLE)
@@ -88,7 +101,7 @@ Uint64 SDL_GetPerformanceCounter(void)
 #ifdef HAVE_CLOCK_GETTIME
         struct timespec now;
 
-        clock_gettime(SDL_MONOTONIC_CLOCK, &now);
+        OhosClockRaw(SDL_MONOTONIC_CLOCK, &now);
         ticks = now.tv_sec;
         ticks *= SDL_NS_PER_SECOND;
         ticks += now.tv_nsec;

@@ -1,6 +1,7 @@
 #include "dxvk_cmdlist.h"
 #include "dxvk_device.h"
 #include "dxvk_winehua_submit_stats.h"
+#include "dxvk_ohos_memory_stats.h"
 
 #include <algorithm>
 #include <array>
@@ -63,6 +64,15 @@ namespace dxvk {
         " maxMappedFlushUs=", phase.mappedFlushMaxUs,
         " avgVkQueueSubmitUs=", phase.submissions ? phase.queueSubmitUs / phase.submissions : 0,
         " maxVkQueueSubmitUs=", phase.queueSubmitMaxUs));
+      // OHOS 资源足迹（复用 dxvk_ohos_memory_stats 进程内计数）：诊断
+      // "GL 侧 5GB" 的构成——海量普通纹理 / 少量超大图（RT 泄漏）/ 缓冲。
+      Logger::info(str::format(
+        "G9_DXVK_RESOURCES imagesMB=", uint64_t(ohosImageBytes().load(std::memory_order_relaxed) >> 20),
+        " images=", uint64_t(ohosImageCount().load(std::memory_order_relaxed)),
+        " largeMB=", uint64_t(ohosLargeImageBytes().load(std::memory_order_relaxed) >> 20),
+        " large=", uint64_t(ohosLargeImageCount().load(std::memory_order_relaxed)),
+        " buffersMB=", uint64_t(ohosBufferBytes().load(std::memory_order_relaxed) >> 20),
+        " buffers=", uint64_t(ohosBufferCount().load(std::memory_order_relaxed))));
       phase = G9SubmitPhaseWindow();
     }
   }

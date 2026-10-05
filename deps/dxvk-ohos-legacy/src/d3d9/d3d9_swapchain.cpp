@@ -4,7 +4,20 @@
 
 #include "d3d9_hud.h"
 
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
+
 namespace dxvk {
+
+  // G9 Present 账本开关（GTAV_OHOS_TELEMETRY=1 时启用；供 PresentImage 分段计时用）
+  bool g9OhosLedgerEnabled() {
+    static const bool enabled = [] {
+      const char* v = std::getenv("GTAV_OHOS_TELEMETRY");
+      return v && v[0] == '1' && v[1] == '\0';
+    }();
+    return enabled;
+  }
 
 
   struct D3D9WindowData {
@@ -812,7 +825,23 @@ namespace dxvk {
   }
 
 
+  // G9 分段计时（排查进图 ~1s/帧：把 Present 路径切成
+  // 同步上一帧 / acquire / blit+提交 / 帧延迟等待 四段），每 64 帧打一行。
+  namespace {
+    struct G9PresentPhase {
+      uint64_t frames = 0, totalUs = 0, syncUs = 0,
+               acquireUs = 0, submitUs = 0, latencyUs = 0;
+    };
+    G9PresentPhase g_g9PresentPhase;
+
+    uint64_t g9PresentNowUs() {
+      return uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+    }
+  }
+
   void D3D9SwapChainEx::PresentImage(UINT SyncInterval) {
+    const uint64_t g9FrameBeginUs = g9PresentNowUs();
     m_parent->Flush();
 
     // Retrieve the image and image view to present
@@ -822,8 +851,11 @@ namespace dxvk {
     // Bump our frame id.
     ++m_frameId;
 
+    uint64_t g9SyncUs = 0, g9AcquireUs = 0, g9SubmitUs = 0;
     for (uint32_t i = 0; i < SyncInterval || i < 1; i++) {
+      uint64_t g9T = g9PresentNowUs();
       SynchronizePresent();
+      g9SyncUs += g9PresentNowUs() - g9T;
 
       // Presentation semaphores and WSI swap chain image
       vk::PresenterInfo info = m_presenter->info();
@@ -831,15 +863,20 @@ namespace dxvk {
 
       uint32_t imageIndex = 0;
 
+      g9T = g9PresentNowUs();
       VkResult status = m_presenter->acquireNextImage(sync, imageIndex);
+      g9AcquireUs += g9PresentNowUs() - g9T;
 
       while (status != VK_SUCCESS && status != VK_SUBOPTIMAL_KHR) {
         RecreateSwapChain(m_vsync);
         
         info = m_presenter->info();
+        g9T = g9PresentNowUs();
         status = m_presenter->acquireNextImage(sync, imageIndex);
+        g9AcquireUs += g9PresentNowUs() - g9T;
       }
 
+      g9T = g9PresentNowUs();
       m_context->beginRecording(
         m_device->createCommandList());
 
@@ -862,9 +899,68 @@ namespace dxvk {
         m_context->signal(m_frameLatencySignal, m_frameId);
 
       SubmitPresent(sync, i);
+      g9SubmitUs += g9PresentNowUs() - g9T;
     }
 
+    uint64_t g9T = g9PresentNowUs();
     SyncFrameLatency();
+    const uint64_t g9LatencyUs = g9PresentNowUs() - g9T;
+
+    // G9 账本：每 64 帧汇总一次 Present 分段耗时
+    {
+      extern bool g9OhosLedgerEnabled();
+      static const bool g9Ledger = g9OhosLedgerEnabled();
+      if (g9Ledger) {
+        g_g9PresentPhase.frames += 1;
+        g_g9PresentPhase.totalUs += g9PresentNowUs() - g9FrameBeginUs;
+        g_g9PresentPhase.syncUs += g9SyncUs;
+        g_g9PresentPhase.acquireUs += g9AcquireUs;
+        g_g9PresentPhase.submitUs += g9SubmitUs;
+        g_g9PresentPhase.latencyUs += g9LatencyUs;
+        if (g_g9PresentPhase.frames >= 64) {
+          const auto &p = g_g9PresentPhase;
+          extern std::atomic<uint64_t> g9GpuDrawCount;
+          extern std::atomic<uint64_t> g9GpuRenderPassCount;
+          extern std::atomic<uint64_t> g9GpuPipelineLookupCount;
+          extern std::atomic<uint64_t> g9GpuVertexCount;
+          extern std::atomic<uint64_t> g9GpuIndexCount;
+          extern std::atomic<uint64_t> g9GpuClearCount;
+          extern std::atomic<uint64_t> g9GpuClearPixels;
+          static uint64_t g9LastDraws = 0, g9LastPasses = 0, g9LastBinds = 0,
+                          g9LastVerts = 0, g9LastIndices = 0,
+                          g9LastClears = 0, g9LastClearPixels = 0;
+          const uint64_t draws = g9GpuDrawCount.load(std::memory_order_relaxed);
+          const uint64_t passes = g9GpuRenderPassCount.load(std::memory_order_relaxed);
+          const uint64_t binds = g9GpuPipelineLookupCount.load(std::memory_order_relaxed);
+          const uint64_t verts = g9GpuVertexCount.load(std::memory_order_relaxed);
+          const uint64_t indices = g9GpuIndexCount.load(std::memory_order_relaxed);
+          const uint64_t clears = g9GpuClearCount.load(std::memory_order_relaxed);
+          const uint64_t clearPixels = g9GpuClearPixels.load(std::memory_order_relaxed);
+          Logger::info(str::format(
+            "[G9-Present] n=", p.frames,
+            " avgTotalUs=", p.totalUs / p.frames,
+            " avgSyncPrevUs=", p.syncUs / p.frames,
+            " avgAcquireUs=", p.acquireUs / p.frames,
+            " avgBlitSubmitUs=", p.submitUs / p.frames,
+            " avgLatencyWaitUs=", p.latencyUs / p.frames,
+            " drawsPerFrame=", (draws - g9LastDraws) / p.frames,
+            " passesPerFrame=", (passes - g9LastPasses) / p.frames,
+            " bindsPerFrame=", (binds - g9LastBinds) / p.frames,
+            " vertsPerFrame=", (verts - g9LastVerts) / p.frames,
+            " indicesPerFrame=", (indices - g9LastIndices) / p.frames,
+            " clearsPerFrame=", (clears - g9LastClears) / p.frames,
+            " clearMPixPerFrame=", (clearPixels - g9LastClearPixels) / p.frames / 1000000ull));
+          g9LastDraws = draws;
+          g9LastPasses = passes;
+          g9LastBinds = binds;
+          g9LastVerts = verts;
+          g9LastIndices = indices;
+          g9LastClears = clears;
+          g9LastClearPixels = clearPixels;
+          g_g9PresentPhase = G9PresentPhase{};
+        }
+      }
+    }
 
     // Rotate swap chain buffers so that the back
     // buffer at index 0 becomes the front buffer.
@@ -886,8 +982,11 @@ namespace dxvk {
       cHud         = m_hud,
       cCommandList = m_context->endRecording()
     ] (DxvkContext* ctx) {
+      // G9 诊断消融：telemetry 模式下跳过 acquire 信号量等待，
+      // 判断"图像可用信号晚到"是否是每帧 ~1s 的节流点
+      extern bool g9OhosLedgerEnabled();
       m_device->submitCommandList(cCommandList,
-        cSync.acquire, cSync.present);
+        g9OhosLedgerEnabled() ? VK_NULL_HANDLE : cSync.acquire, cSync.present);
 
       if (cHud != nullptr && !cFrameId)
         cHud->update();
@@ -1095,6 +1194,13 @@ namespace dxvk {
 
 
   void D3D9SwapChainEx::SyncFrameLatency() {
+    // G9 诊断消融：telemetry 模式下跳过帧延迟等待，用于判断
+    // "GPU 真慢" 还是 "信号/同步链路晚到"（账本里 SyncPrevUs 会接棒计时）
+    {
+      extern bool g9OhosLedgerEnabled();
+      if (g9OhosLedgerEnabled())
+        return;
+    }
     // Wait for the sync event so that we respect the maximum frame latency
     m_frameLatencySignal->wait(m_frameId - GetActualFrameLatency());
   }

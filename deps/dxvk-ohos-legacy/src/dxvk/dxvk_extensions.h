@@ -320,6 +320,9 @@ namespace dxvk {
   struct DxvkInstanceExtensions {
     #if defined(DXVK_NATIVE_OHOS)
     DxvkExt ohosSurface = { VK_OHOS_SURFACE_EXTENSION_NAME, DxvkExtMode::Required };
+    // OHOS 移植补丁：Android surface 入口优先（Maleoon "present 成功但不上屏"坑，
+    // 知识库四项目交叉验证）。Optional：驱动没有该扩展时静默跳过。
+    DxvkExt androidSurface = { "VK_KHR_android_surface", DxvkExtMode::Optional };
     #endif
     DxvkExt extDebugUtils                   = { VK_EXT_DEBUG_UTILS_EXTENSION_NAME,                      DxvkExtMode::Optional };
     DxvkExt khrGetSurfaceCapabilities2      = { VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,       DxvkExtMode::Optional };

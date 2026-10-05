@@ -10,6 +10,7 @@
 #include "../util/util_ratio.h"
 
 #include <cfloat>
+#include <cstdlib>
 
 namespace dxvk {
 
@@ -455,10 +456,26 @@ namespace dxvk {
                                     | D3DLINECAPS_ALPHACMP
                                     | D3DLINECAPS_FOG
                                     | D3DLINECAPS_ANTIALIAS; //<-- Lying about doing AA lines here, we don't *fully* support that.
-    // Max Texture Width
+    // Max Texture Width / Height
+#if defined(__OHOS__)
+    {
+      // OHOS 内存预算：Maleoon/Mali 系不支持 BC/DXT 采样，引擎（CSGO）在加载时把
+      // DXT 纹理解码为 RGBA8 上传（8 倍膨胀）。上报较小的 MaxTextureWidth/Height
+      // 会让引擎在解码时把过大纹理降采样，无代码侵入地压低 GPU 内存。
+      // 运行时可调：CSGO_OHOS_MAXTEX（由 cmdline 的 maxtex=NN 注入），默认 512。
+      uint32_t uOhosMaxTex = 512;
+      if (const char* envMaxTex = ::getenv("CSGO_OHOS_MAXTEX")) {
+        const int v = ::atoi(envMaxTex);
+        if (v >= 256 && v <= 16384)
+          uOhosMaxTex = uint32_t(v);
+      }
+      pCaps->MaxTextureWidth  = uOhosMaxTex;
+      pCaps->MaxTextureHeight = uOhosMaxTex;
+    }
+#else
     pCaps->MaxTextureWidth          = MaxTextureDimension;
-    // Max Texture Height
     pCaps->MaxTextureHeight         = MaxTextureDimension;
+#endif
     // Max Volume Extent
     pCaps->MaxVolumeExtent          = 8192;
     // Max Texture Repeat

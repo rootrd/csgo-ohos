@@ -740,6 +740,40 @@ namespace dxvk::vk {
   VkResult Presenter::createNativeSurface(void* window) {
     if (!window)
       return VK_ERROR_SURFACE_LOST_KHR;
+
+    // OHOS 移植补丁（实验，可整段回退）：知识库四项目（xemu/HX360E/PPSSPP/
+    // shadPS4）交叉验证——Maleoon 上 vkCreateSurfaceOHOS 存在"present 成功但
+    // 内容不上屏"（合成器不按显示节拍回收缓冲，应用侧表现为 present/完成延迟
+    // ~1s 级）。正解 = 优先 vkCreateAndroidSurfaceKHR（OHNativeWindow 与其 ABI
+    // 兼容）；本路径失败或不受支持时回退现有 OHOS 扩展路径。
+    if (m_vki->vkCreateAndroidSurfaceKHR) {
+      VkAndroidSurfaceCreateInfoKHR androidInfo = { };
+      androidInfo.sType  = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+      androidInfo.pNext  = nullptr;
+      androidInfo.flags  = 0;
+      androidInfo.window = reinterpret_cast<ANativeWindow*>(window);
+
+      VkResult androidStatus = m_vki->vkCreateAndroidSurfaceKHR(
+        m_vki->instance(), &androidInfo, nullptr, &m_surface);
+
+      if (androidStatus == VK_SUCCESS) {
+        VkBool32 supported = VK_FALSE;
+        VkResult supportStatus = m_vki->vkGetPhysicalDeviceSurfaceSupportKHR(
+          m_device.adapter, m_device.queueFamily, m_surface, &supported);
+
+        if (supportStatus == VK_SUCCESS && supported) {
+          Logger::info("Presenter: native surface via vkCreateAndroidSurfaceKHR (Maleoon screen-on path)");
+          return VK_SUCCESS;
+        }
+        destroySurface();
+        Logger::warn(str::format("Presenter: android surface unsupported (support=",
+          supportStatus, " present=", supported, "); falling back to OHOS surface"));
+      } else {
+        Logger::warn(str::format("Presenter: vkCreateAndroidSurfaceKHR failed (",
+          androidStatus, "); falling back to OHOS surface"));
+      }
+    }
+
     if (!m_vki->vkCreateSurfaceOHOS)
       return VK_ERROR_EXTENSION_NOT_PRESENT;
 

@@ -19,6 +19,8 @@ namespace dxvk::caps {
 
   constexpr uint32_t InputRegisterCount           = 16;
 
+  // OHOS 的贴图尺寸上限（上报给引擎的 MaxTextureWidth/Height）改为运行时
+  // 配置：见 d3d9_adapter.cpp 读取 CSGO_OHOS_MAXTEX（默认 512）。此常量保持桌面值。
   constexpr uint32_t MaxTextureDimension          = 16384;
   constexpr uint32_t MaxMipLevels                 = 15;
   constexpr uint32_t MaxSubresources              = 15 * 6;

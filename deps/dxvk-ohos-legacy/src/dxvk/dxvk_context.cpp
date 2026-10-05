@@ -20,6 +20,15 @@
 
 namespace dxvk {
 
+  // G9 每帧命令形态计数（排查进图 GPU ~1s/帧：是绘制数还是渲染通道数在爆）
+  std::atomic<uint64_t> g9GpuDrawCount { 0 };
+  std::atomic<uint64_t> g9GpuRenderPassCount { 0 };
+  std::atomic<uint64_t> g9GpuPipelineLookupCount { 0 };
+  std::atomic<uint64_t> g9GpuVertexCount { 0 };
+  std::atomic<uint64_t> g9GpuIndexCount { 0 };
+  std::atomic<uint64_t> g9GpuClearCount { 0 };
+  std::atomic<uint64_t> g9GpuClearPixels { 0 };
+
   static bool winehuaTraceDepthFormat(VkFormat format) {
     return format == VK_FORMAT_D16_UNORM
         || format == VK_FORMAT_X8_D24_UNORM_PACK32
@@ -2418,6 +2427,8 @@ namespace dxvk {
           uint32_t instanceCount,
           uint32_t firstVertex,
           uint32_t firstInstance) {
+    g9GpuDrawCount.fetch_add(1, std::memory_order_relaxed);
+    g9GpuVertexCount.fetch_add(uint64_t(vertexCount) * uint64_t(instanceCount), std::memory_order_relaxed);
     winehuaFlowTrace(str::format(
       "draw request vertices=", vertexCount,
       " instances=", instanceCount));
@@ -2620,6 +2631,8 @@ namespace dxvk {
           uint32_t firstIndex,
           uint32_t vertexOffset,
           uint32_t firstInstance) {
+    g9GpuDrawCount.fetch_add(1, std::memory_order_relaxed);
+    g9GpuIndexCount.fetch_add(uint64_t(indexCount) * uint64_t(instanceCount), std::memory_order_relaxed);
     winehuaFlowTrace(str::format(
       "draw-indexed request indices=", indexCount,
       " instances=", instanceCount));
@@ -3150,6 +3163,12 @@ namespace dxvk {
           VkImageAspectFlags        discardAspects,
           VkImageAspectFlags        clearAspects,
           VkClearValue              clearValue) {
+    // G9：统计清除调用与像素量（Mali clearAttachments 慢路径排查）
+    g9GpuClearCount.fetch_add(1, std::memory_order_relaxed);
+    if (imageView != nullptr) {
+      const VkExtent3D e = imageView->imageInfo().extent;
+      g9GpuClearPixels.fetch_add(uint64_t(e.width) * uint64_t(e.height), std::memory_order_relaxed);
+    }
     if (winehuaSampleTraceEnabled() && winehuaTraceDepthView(imageView)) {
       winehuaSampleTrace(str::format(
         "depth-clear-perform cookie=", imageView->cookie(),
@@ -5099,6 +5118,7 @@ namespace dxvk {
 
 
   void DxvkContext::startRenderPass() {
+    g9GpuRenderPassCount.fetch_add(1, std::memory_order_relaxed);
     if (!m_flags.test(DxvkContextFlag::GpRenderPassBound)) {
       this->applyRenderTargetLoadLayouts();
       this->flushClears(true);
@@ -5659,6 +5679,7 @@ namespace dxvk {
   
   
   bool DxvkContext::updateGraphicsPipeline() {
+    g9GpuPipelineLookupCount.fetch_add(1, std::memory_order_relaxed);
     m_state.gp.pipeline = lookupGraphicsPipeline(m_state.gp.shaders);
 
     if (unlikely(m_state.gp.pipeline == nullptr)) {
