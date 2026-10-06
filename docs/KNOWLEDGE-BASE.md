@@ -143,3 +143,52 @@
   overlay 资源同步到 `ohos/overlay`，打包顺序：boot 先、overlay 后覆盖。
 - **导入路径**：启动页【本地导入资源包】→ 异步解压到 HAP 级 files/csgo →
   资源检查绿灯 → 启动游戏。资源 zip 用 pack-resource-zip.ps1 从下载目录打包。
+
+## 9. 显存压降、卡顿定位与在案卡点（2026-10-05）
+
+- **菜单 1fps → 58.7fps（定案）**：根因 `CMaterialSystem::EndFrame()`
+  （cmaterialsystem.cpp:4241）同步等 `m_pActiveAsyncJob`（MATERIAL_QUEUED_THREADED，
+  `mat_queue_mode` 默认 -1 且核数≥2 自动触发）；`CJob::WaitForFinish → CThreadPool::YieldWait
+  → CThreadSyncObject::WaitForMultiple`（threadtools.cpp:3210）1ms/事件自旋。
+  **解法=`+mat_queue_mode 0`**（注入 cmdline.txt）。
+- **显存压降（实测）**：D3D9 caps MaxTextureWidth/Height 走 `CSGO_OHOS_MAXTEX`
+  （默认 512，可调 256~16384，d3d9_adapter.cpp）。`maxtex=256` 后：
+  images 1128→458MB、buffers 404→283MB，菜单态 GL 466MB。
+  盘点工具 `hidumper --mem <pid>`。
+- **注入通道（唯一可靠路径）**：`ohos/overlay/csgo/cmdline.txt`（`|` 分隔）→ 打包 →
+  沙箱 `files/csgo/csgo/cmdline.txt` → engine_startup 读取并**赋值 extraArgs**。
+  perf token：`maxtex=NN`（纹理上限）、`render=WxH`（渲染分辨率）。
+  双坑：napi 必须**深路径优先**（浅路径是历史遗留）、engine_startup 读到后必须真正赋值。
+- **显示尺寸链（已修通）**：engine_startup 视频模式**横屏归一化**（w>h 时才原样，
+  否则交换）→ `CSGO_OHOS_DISPLAY` → DXVK util_monitor.cpp `OhosDisplaySize()` →
+  GetMonitorDisplayMode → 交换链 buffer。目标机 2848x1276，左上角 HUD 显示正常（用户确认）。
+- **SyncFrameLatency 卡点（在案）**：进图后 ~1s 帧间隔，off-CPU 99.5% 在
+  `D3D9SwapChainEx::Present → PresentImage → SyncFrameLatency()`（等帧的 GPU 完成信号）；
+  主线程 CPU 1.3%、整机无发热 = **纯等待，非软件负担**。musl 下
+  `pthread_cond_timedwait` 是 `pthread_cond_wait` 的内部实现（无真超时，排除「1s 超时」假说）。
+  下一步：`vkCmdWriteTimestamp` 打 GPU 时间戳，或全屏内容消融（空渲染看 Present 耗时）。
+- **合成撕裂卡点（在案）**：画面竖条纹/左上内容小块/上下白边；全链尺寸对齐后仍在，
+  残留差异 = buffer 2848x1276 vs 窗口可视区 2848x1045+系统栏。下一步研究
+  OHOS buffer geometry / transformHint 与合成器对齐（含 `setSpecificSystemBarEnabled` 变体）。
+- **hvigor 增量缓存陷阱**：改 hap/entry/libs 或 native 代码后，**必须 `rm -rf hap/entry/build`**
+  重打，否则旧 .so 静默上机（outputs/default 偶发 busy → 稍候重试）。
+- **SDL3 帧率声明（我们新增，官方无）**：`OH_NativeXComponent_SetExpectedFrameRateRange
+  (60,120,120)` 已加在 SDL_openharmonyvideo.c surface created；FIFO 走
+  dxvk.conf `d3d9.presentInterval=1` 已生效但**不解决卡顿**（帧率声明与 FIFO 均已排除）。
+- **hiperf 采样陷阱**：采样分布可能误导（显示 90% 在 SDL_main，但 /proc ticks 实测 1.3%）
+  —— 以 `/proc/<pid>/task/*/stat` 计数为准。cppcrash 日志用 `hdc file recv` 取证
+  （shell cat 无权限）。
+
+## 10. 上游 DXVK fork 与参考情报（2026-10-05）
+
+- **fork 谱系**：PomeloTechLabs `dxvk-ohos-legacy`（DXVK 1.10.3，**我们在用**）
+  vs `dxvk-ohos-modern`（DXVK 2.6.2，渲染同步架构重写）。两条线已分流。
+- **上游 HEAD（9-27）新增**：ASTC/EAC 格式支持 + etcpak 编码器 + present telemetry；
+  但**整体覆盖同步不可行**（父线有 `d3d9 IsBcEmulated` BC 模拟族 26 处，现代线没有）
+  → 需三方合并。参考克隆在 `deps/dxvk-ohos-upstream-ref/`（.gitignore 排除）。
+- **Maleoon 驱动怪癖（@WINEHUA_FORK.md）**：Cube Dref 需 padded vec4；原生 CubeArray Dref
+  挂死 Host Venus ring → 用 2D-array 模拟；不支持 BC/DXT → 软件解 BC1-7。
+- **参考情报**：CS:NO 0.3.0 同走 DXVK 且**不链 glib/pango**（freetype+harfbuzz+sheenbidi
+  文本栈）——我们的 Panorama 文本栈坑属自引入负担；死亡细胞 ASTC 管线成功但死于
+  BiSheng 编译器栈爆（小栈线程 + `libbishenggpucompiler` 深递归，修法=pthread_attr_setstacksize
+  或大栈线程编译）。
