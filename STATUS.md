@@ -1,4 +1,29 @@
-# 移植状态：完成项与当前卡点（2026-10-01 凌晨）
+# 移植状态：完成项与当前卡点
+
+## 2026-10-05 深夜：当前进度与在案卡点（**以此为准**）
+
+### 本轮净进展（均可验证）
+| # | 成果 | 证据 |
+|---|---|---|
+| 1 | **主菜单 1fps → 58.7fps**（引擎计时 399 帧 avg 17.03ms） | 根因=`CMaterialSystem::EndFrame` 等异步队列渲染作业（默认 `mat_queue_mode -1` 自动走 QUEUED_THREADED，作业被服务延迟 ~1s + `YieldWait` 1ms 步进自旋）；修复=`+mat_queue_mode 0` 注入 |
+| 2 | **显存压降**：进图短图纹理 1128→458MB、缓冲 404→283MB；菜单态 GL ~466MB | `maxtex=256`（d3d9 caps 运行时上报上限）+ dxvk.conf 内存封顶 |
+| 3 | **显示尺寸链修复**：`CSGO_OHOS_DISPLAY` → DXVK monitor → 引擎设备模式 → 交换链 buffer 全链 **2848x1276**（修前被面板原生竖屏 1276x2848 带偏、还钳成 1276x1276 方形）；**左上角 HUD 显示恢复正常** | 日志三连 + 用户目视确认 |
+| 4 | **注入通道修复**：所有 cmdline 注入此前从未生效（napi 读浅路径陈旧文件 + engine_startup 读深路径却不赋值）；现已修复并在每条注入实验前自证 | stdio `inject args` 与 overlay 逐字一致 |
+| 5 | **看门狗自爆修复**：全线程 SIGUSR2 快照撞刚创建的 FFRT 线程导致进程 SIGILL；已改默认关闭 + 跳过 `OS_*` | 系统 faultlog 实锤 |
+| 6 | 呈现/帧率实验三连：**FIFO 已生效**（`d3d9.presentInterval=1` → `VK_PRESENT_MODE_FIFO_KHR`）不解决卡点；**鸿蒙帧率声明**（SDL3 `SetExpectedFrameRateRange(60,120,120)`，返回 0）不解决；系统栏隐藏/横屏预置在该版本 API 未生效 | 真机日志/截图 |
+| 7 | 知识库沉淀：`G:\知识库\CSGO-鸿蒙移植\`（SKILL+9 篇）+ 经验库 31/32（soname 双载、注入断链、BiSheng 编译爆栈）+ SourceOH 交叉引用 | — |
+
+### 在案卡点（均已完成定性，含下一步）
+1. **合成撕裂**（竖条纹 + 内容只在左上角小块 + 上下白边）：尺寸链全部对齐后仍存在；残留差异为 buffer(2848x1276) vs 窗口可视区(2848x1045)+系统栏。下一步：OHOS buffer geometry/transformHint 与合成器对齐研究；系统栏改 `setSpecificSystemBarEnabled` 变体。
+2. **进图 ~1s/帧（"被按住"）**：off-CPU 采样 99.5% 在 `D3D9SwapChainEx::Present → PresentImage → SyncFrameLatency()`（等帧的 GPU 完成信号）；主线程 CPU 1.3%、无发热。菜单态同路径仅 0.7ms。下一步：GPU 时间戳（vkCmdWriteTimestamp）或全屏内容消融定位。
+
+### 已知坑（本轮新增，详见知识库）
+- **hvigor 增量缓存可能不重打 libs**：改了库但行为不变时先 `rm -rf hap/entry/build` 再打包。
+- **DXVK fork 上游（PomeloTechLabs）已领先 3 周+**（ASTC/EAC、present telemetry、cache recovery）；两条线已分流（父线有 d3d9 BC 模拟族），**整体覆盖不可行，需三方合并**；参考克隆留 `deps/dxvk-ohos-upstream-ref/`。
+
+---
+
+## 历史记录（2026-10-01 → 10-04）
 
 ## 重大突破（2026-09-30 → 10-01 通宵推进）
 

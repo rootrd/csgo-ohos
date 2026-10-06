@@ -58,6 +58,11 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     // 沉浸式全屏：内容延伸进导航条区域，去掉底部白条；启动页/游戏都全屏
     const mainWindow = windowStage.getMainWindowSync()
+    // 关键：在挂载 XComponent 之前先把窗口定为横屏。OHOS 面板原生竖屏，
+    // 若 surface/buffer 队列按竖屏建立，之后引擎按 2848 宽渲染会被合成器
+    // 按竖屏布局（1276 宽）解读 —— 表现为竖条纹撕裂 + 内容只出现在左上角
+    // （知识库 SourceOH 笔记同款教训："启动后旋转横屏是表面几何正确的关键"）。
+    mainWindow.setPreferredOrientation(window.Orientation.LANDSCAPE)
     mainWindow.setWindowLayoutFullScreen(true)
     mainWindow.setWindowSystemBarProperties({
       navigationBarColor: '#00000000',

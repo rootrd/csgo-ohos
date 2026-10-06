@@ -57,3 +57,6 @@ deps/dxvk-ohos-upstream-ref/
 # Python build/test caches
 __pycache__/
 *.pyc
+
+# DXVK fork 升级前的本地备份（保持工作副本，勿入库）
+deps/dxvk-ohos-legacy.bak-*/
