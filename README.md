@@ -16,16 +16,17 @@
 ├─────────────────────────────────────────────────────────┤
 │  图形栈：D3D9 → DXVK（legacy 分支）→ Vulkan 1.3 → Maleoon 920 │
 │   · Maleoon quirk：同 render pass 多次 vkCmdClearAttachments │
-│     只有第一次生效（probe 实测）                             │
+│     只有第一次生效（probe 实测）；无 BC/DXT → DXVK 软解      │
 ├─────────────────────────────────────────────────────────┤
 │  兼容层：sse2neon（SSE2→NEON）、musl 文本栈                  │
 │   （pango/cairo/fontconfig/glib 自建）、SDL3 OHOS 后端       │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 当前状态（2026-09-30）
+## 当前状态（2026-10-05）
 
-**引擎初始化推进至 vgui2 之后**。完整状态、已攻克关卡清单与当前卡点见 [STATUS.md](STATUS.md)，
+**引擎主循环已进入，真机主菜单可渲染且流畅（58.7 FPS）**。
+完整状态、已攻克关卡清单与当前卡点见 [STATUS.md](STATUS.md)，
 联调战报与调试方法见 [docs/PORTING-PLAN.md](docs/PORTING-PLAN.md)，
 全部踩坑与知识点见 [docs/KNOWLEDGE-BASE.md](docs/KNOWLEDGE-BASE.md)。
 
@@ -34,9 +35,24 @@
 | WSL 交叉编译全链（26 模块 + libmain，90 库入 HAP） | ✅ |
 | Vulkan probe 上屏（2132 帧 ~120FPS，四色图案真机可见） | ✅ |
 | 19GB 游戏资源导入（Steam depot 731 完整版） | ✅ |
-| 引擎初始化：D3D9 device / RESZ/INTZ / studiorender 材质 / vguimatsurface / fonts / vgui2 | ✅ |
-| vgui2 之后 → engine 主循环 → 主菜单 | 🔬 定位中（InitSys 二分打点已装机） |
-| 主菜单 → 加载地图 → 可玩 | ⏳ 未开始 |
+| 引擎初始化 → 主循环 → Panorama 主菜单（26 模块，D3D9/DXVK 全链） | ✅ |
+| 主菜单流畅渲染：真机 58.7 FPS（修复：`+mat_queue_mode 0`，见下） | ✅ |
+| 显存压降：`maxtex=256` → images 1128→458MB（菜单态 GL 466MB） | ✅ |
+| 显示尺寸链对齐 2848x1276，左上角 HUD 显示正常 | ✅ |
+| 主菜单 → 加载地图 → 可玩 | 🔬 定位中（在案两卡点，见下） |
+
+**关键修复（复现流畅菜单所需）**：`+mat_queue_mode 0` —— 菜单 1fps 的根因是
+`CMaterialSystem::EndFrame()` 等待材质异步作业，1ms/事件自旋拖垮主线程；
+关掉队列模式后 58.7 FPS。注入通道：`ohos/overlay/csgo/cmdline.txt`。
+
+**在案卡点（均已在仓库文档留证）**：
+
+1. **合成撕裂**：画面竖条纹 + 左上内容小块 + 上下白边 —— 全链尺寸已对齐（buffer
+   2848x1276 vs 窗口可视区 2848x1045+系统栏），待查 OHOS buffer geometry /
+   transformHint 与合成器对齐。
+2. **进图 Present 等待 ~1s**：off-CPU 99.5% 停在
+   `D3D9SwapChainEx::Present → SyncFrameLatency()`（等 GPU 完成信号），CPU 1.3%、无发热，
+   属纯等待；下一步 GPU 时间戳（`vkCmdWriteTimestamp`）或全屏内容消融定位。
 
 ## 仓库结构
 
